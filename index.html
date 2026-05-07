@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metapharsic ERP</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      /* Premium Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+        border-radius: 4px;
+        border: 2px solid #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+
+      /* Glassmorphism Utilities */
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+      
+      .glass-dark {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Animation for Logo */
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+        100% { transform: translateY(0px); }
+      }
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 text-slate-900 font-sans antialiased overflow-hidden selection:bg-blue-200">
+    <div id="root">LOADING...</div>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>

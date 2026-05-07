@@ -1,0 +1,31 @@
+{
+    "name": "metapharsic-server",
+    "version": "1.0.0",
+    "description": "Backend for Metapharsic Lifesciences ERP",
+    "main": "index.js",
+    "type": "commonjs",
+    "scripts": {
+        "start": "node index.js",
+        "test": "node test-db.js"
+    },
+    "dependencies": {
+        "bcryptjs": "^2.4.3",
+        "bull": "^4.10.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.0.0",
+        "express": "^4.18.1",
+        "express-mongo-sanitize": "^2.2.0",
+        "express-rate-limit": "^6.4.0",
+        "helmet": "^6.0.0",
+        "hpp": "^0.2.3",
+        "jsonwebtoken": "^9.0.0",
+        "nodemailer": "^6.9.0",
+        "pg": "^8.7.3",
+        "qrcode": "^1.5.3",
+        "redis": "^4.6.0",
+        "speakeasy": "^2.0.0",
+        "swagger-jsdoc": "^6.2.8",
+        "swagger-ui-express": "^5.0.1",
+        "xss-clean": "^0.1.1"
+    }
+}

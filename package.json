@@ -1,0 +1,47 @@
+{
+  "name": "metapharsic-lifesciences",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start-backend": "npm --prefix server start",
+    "start-all": "concurrently \"npm run dev\" \"npm run start-backend\"",
+    "doctor": "node scripts/doctor.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:security": "vitest run services/__tests__/security.test.ts",
+    "test:api": "vitest run services/__tests__/apiClient.test.ts",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext ts,tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "lucide-react": "^0.564.0",
+    "pg": "^8.18.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.14.0",
+    "@types/xlsx": "^0.0.35",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^9.2.1",
+    "jsdom": "^28.1.0",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.2",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^4.0.18"
+  }
+}

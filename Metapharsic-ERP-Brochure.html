@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metapharsic Lifesciences ERP - Product Brochure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .brochure {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        /* Cover Page */
+        .cover {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);
+            color: white;
+            padding: 80px 60px;
+            text-align: center;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cover::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 600px;
+            height: 600px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        
+        .cover::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 400px;
+            height: 400px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+        }
+        
+        .logo {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo span {
+            color: #06b6d4;
+        }
+        
+        .tagline {
+            font-size: 1.5rem;
+            font-weight: 300;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .erp-title {
+            font-size: 4rem;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 50px;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .features-preview {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin-top: 40px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .feature-item {
+            background: rgba(255,255,255,0.15);
+            padding: 20px 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .feature-item .icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .feature-item .label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        /* Content Sections */
+        .section {
+            padding: 60px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .section-header h2 {
+            font-size: 2.5rem;
+            color: #1e3a8a;
+            margin-bottom: 15px;
+        }
+        
+        .section-header p {
+            font-size: 1.1rem;
+            color: #6b7280;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        /* Modules Grid */
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+        
+        .module-card {
+            background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        
+        .module-card .icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .module-card h3 {
+            font-size: 1.2rem;
+            color: #1e3a8a;
+            margin-bottom: 10px;
+        }
+        
+        .module-card p {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        
+        /* Features Section */
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+        
+        .feature-box {
+            display: flex;
+            gap: 20px;
+            padding: 25px;
+            background: white;
+            border-radius: 15px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-box:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 10px 25px rgba(59,130,246,0.1);
+        }
+        
+        .feature-box .icon-wrapper {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+        
+        .feature-box .content h4 {
+            font-size: 1.1rem;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+        
+        .feature-box .content p {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        
+        /* Power BI Section */
+        .powerbi-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+        
+        .analytics-card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .analytics-card h4 {
+            color: #0369a1;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .analytics-card ul {
+            list-style: none;
+        }
+        
+        .analytics-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+        
+        .analytics-card li:last-child {
+            border-bottom: none;
+        }
+        
+        .analytics-card li::before {
+            content: '✓';
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        /* Stats Section */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 30px;
+            text-align: center;
+        }
+        
+        .stat-item {
+            padding: 30px;
+            background: linear-gradient(145deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            border-radius: 20px;
+        }
+        
+        .stat-item .number {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        
+        .stat-item .label {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        
+        /* Benefits Section */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+        }
+        
+        .benefit-item {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .benefit-item .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .benefit-item h4 {
+            color: #1e3a8a;
+            margin-bottom: 10px;
+        }
+        
+        .benefit-item p {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);
+            color: white;
+            text-align: center;
+            padding: 80px 60px;
+        }
+        
+        .cta-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: white;
+            color: #1e3a8a;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        
+        .btn-secondary:hover {
+            background: white;
+            color: #1e3a8a;
+        }
+        
+        /* Footer */
+        .footer {
+            background: #0f172a;
+            color: white;
+            padding: 40px 60px;
+            text-align: center;
+        }
+        
+        .footer p {
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .section {
+                padding: 40px 30px;
+            }
+            
+            .cover {
+                padding: 60px 30px;
+            }
+            
+            .erp-title {
+                font-size: 2.5rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .features-preview {
+                gap: 20px;
+            }
+        }
+        
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .brochure {
+                box-shadow: none;
+            }
+            
+            .section {
+                page-break-inside: avoid;
+            }
+            
+            .cover {
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="brochure">
+        <!-- Cover Page -->
+        <div class="cover">
+            <div class="logo">METAPHARSIC <span>LIFESCIENCES</span></div>
+            <div class="tagline">Pharmaceutical Excellence Through Technology</div>
+            <h1 class="erp-title">Enterprise ERP</h1>
+            <p class="subtitle">Complete Business Management Solution for Pharmaceutical Industry</p>
+            
+            <div class="features-preview">
+                <div class="feature-item">
+                    <div class="icon">📊</div>
+                    <div class="label">Power BI Analytics</div>
+                </div>
+                <div class="feature-item">
+                    <div class="icon">🤖</div>
+                    <div class="label">AI Forecasting</div>
+                </div>
+                <div class="feature-item">
+                    <div class="icon">💬</div>
+                    <div class="label">WhatsApp Integration</div>
+                </div>
+                <div class="feature-item">
+                    <div class="icon">📱</div>
+                    <div class="label">Mobile Ready</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modules Section -->
+        <div class="section">
+            <div class="section-header">
+                <h2>20+ Integrated Modules</h2>
+                <p>Comprehensive coverage of all pharmaceutical business operations from inventory to compliance</p>
+            </div>
+            
+            <div class="modules-grid">
+                <div class="module-card">
+                    <div class="icon">💊</div>
+                    <h3>Inventory Management</h3>
+                    <p>Real-time stock tracking, batch management, expiry alerts, and automated reorder points</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">🛒</div>
+                    <h3>Point of Sale (POS)</h3>
+                    <p>Retail & wholesale billing with GST compliance, multiple payment modes, and invoice generation</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">📈</div>
+                    <h3>Sales & CRM</h3>
+                    <p>Customer relationship management, sales tracking, and performance analytics</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">🏭</div>
+                    <h3>Manufacturing</h3>
+                    <p>Production planning, batch processing, quality control, and compliance tracking</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">🤝</div>
+                    <h3>PCD Franchise</h3>
+                    <p>Partner management, territory allocation, target tracking, and scheme performance</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">📋</div>
+                    <h3>Purchase Management</h3>
+                    <p>Supplier management, purchase orders, GRN, and payment tracking</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">💰</div>
+                    <h3>Accounts & Finance</h3>
+                    <p>General ledger, GST returns, financial reports, and cash flow management</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">👥</div>
+                    <h3>HR & Payroll</h3>
+                    <p>Employee management, attendance, salary processing, and compliance</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">🚚</div>
+                    <h3>Logistics</h3>
+                    <p>Dispatch management, transporter tracking, and delivery optimization</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">✅</div>
+                    <h3>Quality Control</h3>
+                    <p>Testing protocols, certificate management, and regulatory compliance</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">📄</div>
+                    <h3>Document Management</h3>
+                    <p>Centralized document storage, version control, and audit trails</p>
+                </div>
+                
+                <div class="module-card">
+                    <div class="icon">🔬</div>
+                    <h3>R&D Management</h3>
+                    <p>Research tracking, formulation development, and patent management</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Features Section -->
+        <div class="section" style="background: #f8fafc;">
+            <div class="section-header">
+                <h2>Key Features</h2>
+                <p>Built for the modern pharmaceutical enterprise with cutting-edge technology</p>
+            </div>
+            
+            <div class="features-list">
+                <div class="feature-box">
+                    <div class="icon-wrapper">📊</div>
+                    <div class="content">
+                        <h4>Power BI Integration</h4>
+                        <p>8 ready-to-use report templates with Excel export. Real-time dashboards and embedded analytics.</p>
+                    </div>
+                </div>
+                
+                <div class="feature-box">
+                    <div class="icon-wrapper">🔮</div>
+                    <div class="content">
+                        <h4>AI-Powered Forecasting</h4>
+                        <p>Predictive analytics for sales, inventory demand, financial projections, and territory performance.</p>
+                    </div>
+                </div>
+                
+                <div class="feature-box">
+                    <div class="icon-wrapper">💬</div>
+                    <div class="content">
+                        <h4>WhatsApp Notifications</h4>
+                        <p>Instant alerts for critical events, low stock, compliance deadlines, and approvals.</p>
+                    </div>
+                </div>
+                
+                <div class="feature-box">
+                    <div class="icon-wrapper">🎨</div>
+                    <div class="content">
+                        <h4>Modern UI/UX</h4>
+                        <p>Glass-morphism design, customizable dashboard widgets, and intuitive navigation.</p>
+                    </div>
+                </div>
+                
+                <div class="feature-box">
+                    <div class="icon-wrapper">🔒</div>
+                    <div class="content">
+                        <h4>Role-Based Access Control</h4>
+                        <p>Granular permissions, audit trails, and secure data access for all user levels.</p>
+                    </div>
+                </div>
+                
+                <div class="feature-box">
+                    <div class="icon-wrapper">📱</div>
+                    <div class="content">
+                        <h4>Responsive Design</h4>
+                        <p>Works seamlessly on desktop, tablet, and mobile devices for on-the-go access.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Power BI & Analytics Section -->
+        <div class="section powerbi-section">
+            <div class="section-header">
+                <h2>Advanced Analytics & Forecasting</h2>
+                <p>Transform data into actionable insights with integrated Power BI and AI forecasting</p>
+            </div>
+            
+            <div class="analytics-grid">
+                <div class="analytics-card">
+                    <h4>📈 Sales Forecasting</h4>
+                    <ul>
+                        <li>Time series analysis with trend detection</li>
+                        <li>6-month rolling forecasts</li>
+                        <li>95% confidence intervals</li>
+                        <li>Seasonality adjustments</li>
+                        <li>Territory-wise projections</li>
+                    </ul>
+                </div>
+                
+                <div class="analytics-card">
+                    <h4>📦 Inventory Intelligence</h4>
+                    <ul>
+                        <li>Demand forecasting algorithms</li>
+                        <li>EOQ calculations</li>
+                        <li>Reorder point optimization</li>
+                        <li>Safety stock recommendations</li>
+                        <li>Stockout risk alerts</li>
+                    </ul>
+                </div>
+                
+                <div class="analytics-card">
+                    <h4>💰 Financial Projections</h4>
+                    <ul>
+                        <li>Revenue forecasting models</li>
+                        <li>Expense trend analysis</li>
+                        <li>Break-even analysis</li>
+                        <li>Cash flow projections</li>
+                        <li>Profit margin predictions</li>
+                    </ul>
+                </div>
+                
+                <div class="analytics-card">
+                    <h4>🤖 AI Insights</h4>
+                    <ul>
+                        <li>Anomaly detection</li>
+                        <li>Performance gap analysis</li>
+                        <li>Automated recommendations</li>
+                        <li>Risk assessment</li>
+                        <li>Growth opportunity identification</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="section">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="number">20+</div>
+                    <div class="label">Integrated Modules</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">99.9%</div>
+                    <div class="label">Uptime Guarantee</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">&lt;3s</div>
+                    <div class="label">Load Time</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">24/7</div>
+                    <div class="label">Support Available</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Benefits Section -->
+        <div class="section" style="background: #f8fafc;">
+            <div class="section-header">
+                <h2>Business Benefits</h2>
+                <p>Real results that transform your pharmaceutical operations</p>
+            </div>
+            
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <div class="icon">⏱️</div>
+                    <h4>40% Faster Operations</h4>
+                    <p>Automated workflows reduce manual processing time significantly</p>
+                </div>
+                
+                <div class="benefit-item">
+                    <div class="icon">💵</div>
+                    <h4>25% Cost Reduction</h4>
+                    <p>Optimized inventory and reduced wastage cut operational costs</p>
+                </div>
+                
+                <div class="benefit-item">
+                    <div class="icon">📊</div>
+                    <h4>100% Compliance</h4>
+                    <p>Built-in regulatory compliance for pharmaceutical standards</p>
+                </div>
+                
+                <div class="benefit-item">
+                    <div class="icon">🎯</div>
+                    <h4>Real-Time Visibility</h4>
+                    <p>Instant access to business metrics and performance indicators</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Section -->
+        <div class="cta-section">
+            <h2>Ready to Transform Your Business?</h2>
+            <p>Join leading pharmaceutical companies using Metapharsic ERP</p>
+            <div class="cta-buttons">
+                <a href="#" class="btn btn-primary">Request Demo</a>
+                <a href="#" class="btn btn-secondary">Contact Sales</a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>© 2024 Metapharsic Lifesciences. All rights reserved. | Built with React, TypeScript & Power BI</p>
+            <p style="margin-top: 10px;">Enterprise-grade ERP for the Pharmaceutical Industry</p>
+        </div>
+    </div>
+</body>
+</html>

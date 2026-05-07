@@ -1,0 +1,46 @@
+{
+  "accounts": {
+    "totalAccounts": 25,
+    "assetAccounts": 12,
+    "liabilityAccounts": 4,
+    "incomeAccounts": 2,
+    "expenseAccounts": 5,
+    "totalAssets": 97076200,
+    "totalLiabilities": 66473000,
+    "totalIncome": 41488600,
+    "totalExpense": 22836500,
+    "workingCapital": 30603200,
+    "netProfit": 18652100
+  },
+  "inventory": {
+    "totalProducts": 35,
+    "totalUnits": 3418,
+    "totalStockValue": 341085,
+    "lowStockProducts": 31
+  },
+  "pcd": {
+    "activePartners": 2,
+    "totalPartners": 2,
+    "totalTerritories": 1,
+    "verifiedSales": 0,
+    "verifiedTransactions": 0
+  },
+  "crm": {
+    "totalLeads": 5,
+    "newLeads": 2,
+    "convertedLeads": 1,
+    "highPriorityLeads": 2
+  },
+  "sales": {
+    "totalInvoices": 188,
+    "wholesaleInvoices": 181,
+    "todaySales": 0,
+    "monthSales": 0
+  },
+  "dms": {
+    "totalDocuments": 6,
+    "activeDocuments": 2,
+    "expiringDocuments": 4,
+    "draftDocuments": 1
+  }
+}

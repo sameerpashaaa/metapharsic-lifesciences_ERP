@@ -1,0 +1,11 @@
+
+> metapharsic-lifesciences@0.0.0 type-check
+> tsc --noEmit
+
+components/Accounts.tsx(7,8): error TS2613: Module '"C:/Users/Dell/Desktop/metapharsic-lifesciences (6)/components/TDSManagement"' has no default export. Did you mean to use 'import { TDSManagement } from "C:/Users/Dell/Desktop/metapharsic-lifesciences (6)/components/TDSManagement"' instead?
+components/FixedAssetRegister.tsx(402,71): error TS2339: Property 'count' does not exist on type 'unknown'.
+components/FixedAssetRegister.tsx(406,86): error TS2339: Property 'value' does not exist on type 'unknown'.
+components/FixedAssetRegister.tsx(408,33): error TS2339: Property 'value' does not exist on type 'unknown'.
+constants/shortcuts.ts(12,14): error TS2741: Property '[Tab.INVENTORY_ANALYTICS]' is missing in type '{ DASHBOARD: { id: string; key: string; ctrl: true; alt: false; description: string; }; POS: { id: string; key: string; ctrl: true; alt: false; description: string; }; INVENTORY: { id: string; key: string; ctrl: true; alt: false; description: string; }; ... 17 more ...; MULTI_BRANCH: { ...; }; }' but required in type 'Record<Tab, ShortcutDefinition>'.
+services/accountingService.ts(599,31): error TS2339: Property 'subtotal' does not exist on type 'BalanceSheetSection'.
+services/accountingService.ts(599,67): error TS2339: Property 'subtotal' does not exist on type 'BalanceSheetSection'.
