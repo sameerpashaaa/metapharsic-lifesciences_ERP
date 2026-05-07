@@ -488,76 +488,318 @@ export function exportBalanceSheet(liabilities: any[], assets: any[], date: stri
   writeFile(wb, `Balance_Sheet_${date.replace(/\s/g,'_')}_${ts()}.xlsx`);
 }
 
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+export function amountToWords(amount: number): string {
+  if (amount === 0) return 'Zero Only';
+  
+  const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const scales = ['', 'Thousand', 'Lakh', 'Crore'];
+
+  const convertChunk = (num: number): string => {
+    let str = '';
+    if (num >= 100) {
+      str += units[Math.floor(num / 100)] + ' Hundred ';
+      num %= 100;
+    }
+    if (num >= 20) {
+      str += tens[Math.floor(num / 10)] + ' ';
+      num %= 10;
+    }
+    if (num > 0) {
+      str += units[num] + ' ';
+    }
+    return str.trim();
+  };
+
+  let wholeNumber = Math.floor(amount);
+  let result = '';
+  let scaleIndex = 0;
+
+  if (wholeNumber === 0) {
+    result = 'Zero';
+  } else {
+    // Handle Lakhs and Crores (Indian Numbering System)
+    // Last 3 digits
+    let chunk = wholeNumber % 1000;
+    if (chunk > 0) {
+      result = convertChunk(chunk) + ' ' + result;
+    }
+    wholeNumber = Math.floor(wholeNumber / 1000);
+    scaleIndex = 1;
+
+    // Thousands (2 digits)
+    if (wholeNumber > 0) {
+      chunk = wholeNumber % 100;
+      if (chunk > 0) {
+        result = convertChunk(chunk) + ' Thousand ' + result;
+      }
+      wholeNumber = Math.floor(wholeNumber / 100);
+    }
+
+    // Lakhs (2 digits)
+    if (wholeNumber > 0) {
+      chunk = wholeNumber % 100;
+      if (chunk > 0) {
+        result = convertChunk(chunk) + ' Lakh ' + result;
+      }
+      wholeNumber = Math.floor(wholeNumber / 100);
+    }
+
+    // Crores (remaining)
+    if (wholeNumber > 0) {
+      result = convertChunk(wholeNumber) + ' Crore ' + result;
+    }
+  }
+
+  result = result.trim() + ' Only';
+  return 'Rs. ' + result;
+}
+
 // ─── POS INVOICE PRINTING ────────────────────────────────────────────────────
 export function printPOSInvoice(invoice: any, company?: any) {
-  const itemsHtml = (invoice.items || []).map((item: any, idx: number) => `
-    <tr>
-      <td class="text-center">${idx + 1}</td>
-      <td>
-        <b>${item.productName}</b><br/>
-        <span style="font-size: 8px; color: #64748b;">HSN: ${item.hsn || '-'} | Batch: ${item.batchNumber || '-'} | Exp: ${item.expiryDate || '-'}</span>
-      </td>
-      <td class="text-center">${item.quantity} ${item.uom || ''}</td>
-      <td class="text-right">₹${parseFloat(item.rate || item.selling_rate).toLocaleString()}</td>
-      <td class="text-right">${item.discountPercent || 0}%</td>
-      <td class="text-right">₹${parseFloat(item.totalAmount || item.net_payable).toLocaleString()}</td>
+  const itemsHtml = (invoice.items || []).map((item: any, idx: number) => {
+    const qty = parseFloat(item.quantity || 0);
+    const rate = parseFloat(item.rate || item.selling_rate || 0);
+    const amount = parseFloat(item.totalAmount || item.net_payable || (qty * rate));
+    const gstPercent = parseFloat(item.gstPercent || 0);
+    
+    return `
+    <tr style="height: 30px;">
+      <td class="text-center">${idx + 1}.</td>
+      <td style="font-weight: bold; text-transform: uppercase;">${item.productName || item.product_name}</td>
+      <td class="text-center">${item.rack || '-'}</td>
+      <td class="text-center">${item.hsn || '-'}</td>
+      <td class="text-center" style="font-size: 8px;">${(item.manufacturer || '-').substring(0, 10)}</td>
+      <td class="text-center">${item.scheduleType || '-'}</td>
+      <td class="text-center">${item.batchNumber || item.batch_number || '-'}</td>
+      <td class="text-center">${item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('en-IN', { month: '2-digit', year: '2-digit' }) : '-'}</td>
+      <td class="text-center" style="font-weight: bold;">${qty}</td>
+      <td class="text-right">${rate.toFixed(2)}</td>
+      <td class="text-center">${gstPercent}</td>
+      <td class="text-right" style="font-weight: bold;">${amount.toFixed(2)}</td>
+    </tr>
+  `}).join('');
+
+  // Pad empty rows to maintain height
+  const emptyRowsCount = Math.max(0, 10 - (invoice.items?.length || 0));
+  const emptyRows = Array(emptyRowsCount).fill(0).map(() => `
+    <tr style="height: 30px;">
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
     </tr>
   `).join('');
 
-  const html = `
-    <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding: 10px; background: #f8fafc; border-radius: 8px;">
-      <div>
-        <p style="font-[8px]; color: #64748b; text-transform: uppercase; font-weight: 800;">Bill To:</p>
-        <p style="font-size: 14px; font-weight: 900; color: #1e293b; margin: 4px 0;">${invoice.customerName || invoice.party_name || 'Walk-in Customer'}</p>
-        <p style="font-size: 10px; color: #475569;">${invoice.customerMobile || ''}</p>
-        ${invoice.customerGstin ? `<p style="font-size: 10px; color: #1D3557; font-weight: 700;">GSTIN: ${invoice.customerGstin}</p>` : ''}
+  const netAmount = parseFloat(invoice.netAmount || invoice.net_payable || 0);
+  const subTotal = parseFloat(invoice.subTotal || invoice.total_taxable || netAmount);
+  const totalDiscount = parseFloat(invoice.totalDiscount || 0);
+  const gstAmount = netAmount - subTotal;
+
+  // Calculate detailed GST breakdown string
+  let gstBreakdownString = '';
+  if (gstAmount > 0) {
+    const uniqueGstRates = [...new Set((invoice.items || []).map((i: any) => parseFloat(i.gstPercent || 0)).filter((r: number) => r > 0))];
+    
+    if (uniqueGstRates.length > 0) {
+      gstBreakdownString = uniqueGstRates.map(rate => {
+        // Find items with this specific GST rate
+        const itemsWithRate = (invoice.items || []).filter((i: any) => parseFloat(i.gstPercent || 0) === rate);
+        
+        // Calculate the subtotal for these specific items
+        const rateSubTotal = itemsWithRate.reduce((acc: number, item: any) => {
+          const qty = parseFloat(item.quantity || 0);
+          const itemRate = parseFloat(item.rate || item.selling_rate || 0);
+          const amount = parseFloat(item.totalAmount || item.net_payable || (qty * itemRate));
+          return acc + (amount / (1 + (rate as number) / 100));
+        }, 0);
+
+        const rateGstAmount = rateSubTotal * ((rate as number) / 100);
+        const halfRate = ((rate as number) / 2).toFixed(1);
+        const halfGst = (rateGstAmount / 2).toFixed(2);
+        
+        return `GST ${rateSubTotal.toFixed(2)} * ${halfRate}% + ${halfRate}% = ${halfGst} SGST + ${halfGst} CGST`;
+      }).join('<br/>');
+    } else {
+      // Fallback if no rates found but there is a GST amount
+      gstBreakdownString = `GST ${subTotal.toFixed(2)} = ${(gstAmount/2).toFixed(2)} SGST + ${(gstAmount/2).toFixed(2)} CGST`;
+    }
+  } else {
+    gstBreakdownString = 'GST 0.00 * 0% + 0% = 0.00 SGST + 0.00 CGST';
+  }
+
+  const win = window.open('', '_blank', 'width=1000,height=700');
+  if (!win) { alert('Please allow popups to print.'); return; }
+
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(invoice.invoiceNumber || invoice.invoice_no)}`;
+
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>Tax Invoice - ${invoice.invoiceNumber || invoice.invoice_no}</title>
+    <style>
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 5mm; }
+        .no-print { display: none; }
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 10px; color: #000; line-height: 1.2; padding: 10px; }
+      
+      .invoice-container { border: 1px solid #000; width: 100%; max-width: 800px; margin: 0 auto; }
+      
+      .header { display: flex; border-bottom: 1px solid #000; }
+      .header-left { flex: 2; padding: 5px; border-right: 1px solid #000; }
+      .header-center { flex: 1.5; padding: 5px; border-right: 1px solid #000; }
+      .header-right { flex: 1; padding: 5px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+      
+      .store-name { color: #00008B; font-size: 16px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+      
+      .title-box { border: 1px solid #000; padding: 5px 25px; margin: 2px auto; display: inline-block; font-size: 18px; font-weight: bold; background: #fff; }
+      
+      .meta-section { display: flex; border-bottom: 1px solid #000; }
+      .meta-left { flex: 1; padding: 2px 5px; border-right: 1px solid #000; }
+      .meta-center { flex: 1; padding: 2px 5px; text-align: center; }
+      .meta-right { flex: 1; padding: 2px 5px; border-left: 1px solid #000; }
+      
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #E0FFFF; border: 1px solid #000; padding: 4px 2px; font-size: 9px; text-transform: uppercase; }
+      td { border-left: 1px solid #000; border-right: 1px solid #000; padding: 2px; }
+      
+      .footer { display: flex; border-top: 1px solid #000; }
+      .footer-left { flex: 3; padding: 5px; border-right: 1px solid #000; }
+      .footer-right { flex: 1; padding: 0; }
+      
+      .totals-table td { border: none; padding: 2px 5px; }
+      .totals-table tr { border-bottom: 1px solid #000; }
+      .totals-table tr:last-child { border-bottom: none; }
+      
+      .grand-total { font-size: 16px; font-weight: bold; display: flex; justify-content: space-between; padding: 5px; }
+      
+      .text-right { text-align: right; }
+      .text-center { text-align: center; }
+      .bold { font-weight: bold; }
+    </style>
+  </head><body>
+    <div class="invoice-container">
+      <div class="header">
+        <div class="header-left">
+          <div class="store-name">${company?.name || 'METAPHARSIC LIFESCIENCES STORES'}</div>
+          <div>${company?.address || '000, HMT NAGAR, NACHARAM,'}</div>
+          <div>${company?.city || 'HYDERABAD'} - ${company?.pinCode || '500 076'}, ${company?.state || 'TELANGANA'} ${company?.phone || '0000000000'}</div>
+          <div>Phone : ${company?.phone || '0000000000'}</div>
+          <div>E-Mail : ${company?.email || 'XXXXXXXX@gmail.com'}</div>
+          <div style="margin-top: 5px;">Dr. Name : <span class="bold">${invoice.doctorName || '-'}</span></div>
+          <div>Dr. Reg No. : </div>
+        </div>
+        <div class="header-center">
+          <div>Patient Name : <span class="bold">${invoice.patientName || invoice.customerName || '-'}</span></div>
+          <div>Patient Address: <span class="bold">${invoice.patientAddress || '-'}</span></div>
+          <div style="margin-top: 20px;">Mobile No. : <span class="bold">${invoice.customerMobile || '-'}</span></div>
+          <div>ABHA No. : <span class="bold">${invoice.abhaNo || '-'}</span></div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>ABHA Address : <span class="bold">${invoice.abhaAddress || '-'}</span></span>
+          </div>
+        </div>
       </div>
-      <div style="text-align: right;">
-        <p style="font-size: 18px; font-weight: 900; color: #1D3557; margin-bottom: 4px;">INVOICE</p>
-        <p style="font-size: 11px; font-weight: 700;"># ${invoice.invoiceNumber || invoice.invoice_no}</p>
-        <p style="font-size: 10px; color: #64748b;">Date: ${invoice.date || new Date().toLocaleDateString()}</p>
-        <p style="font-size: 10px; color: #64748b;">Time: ${invoice.time || new Date().toLocaleTimeString()}</p>
+      
+      <div class="meta-section">
+        <div class="meta-left">
+          <div>GSTIN : <span class="bold">${company?.gstin || 'XXXXXXXXX'}</span></div>
+          <div>DL.No. : <span class="bold">${company?.drugLicenseNo || 'XXXXXXXXXXXX'}</span></div>
+        </div>
+        <div class="meta-center">
+          <div class="title-box">TAX INVOICE</div>
+        </div>
+        <div class="meta-right">
+          <div>Invoice No.: <span class="bold">${invoice.invoiceNumber || invoice.invoice_no}</span></div>
+          <div>Date : <span class="bold">${invoice.date || new Date().toLocaleDateString('en-GB')} ${invoice.time || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>
+        </div>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30px;">SN.</th>
+            <th>PRODUCT NAME</th>
+            <th style="width: 40px;">RACK</th>
+            <th style="width: 60px;">HSN</th>
+            <th style="width: 70px;">MFG</th>
+            <th style="width: 30px;">SCH</th>
+            <th style="width: 70px;">BATCH</th>
+            <th style="width: 40px;">EXP</th>
+            <th style="width: 40px;">QTY</th>
+            <th style="width: 60px;">RATE</th>
+            <th style="width: 30px;">GST%</th>
+            <th style="width: 70px;">AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+          ${emptyRows}
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <div class="footer-left">
+          <div style="font-size: 9px; margin-bottom: 5px;">
+            ${gstBreakdownString}
+          </div>
+          <div style="border-top: 1px solid #000; padding-top: 5px;">
+            <div class="bold" style="text-decoration: underline;">Terms & Conditions</div>
+            <div style="font-size: 8px;">
+              Exchange only within 1 month of purchase, bill must be produced.<br/>
+              Cutting strips and cold storage items will not be taken back.<br/>
+              Kindly show the medicines to the doctor before use.<br/>
+              We accept all major credit cards/Debit/UPI<br/>
+              <span class="bold">For Home Delivery: ${company?.phone || 'xxxxxxxxxx, xxxxxxxxxx'}</span>
+            </div>
+          </div>
+          <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div class="bold">${amountToWords(netAmount)}</div>
+            <div class="bold">Pharmacist Sign</div>
+          </div>
+        </div>
+        <div class="footer-right">
+          <table class="totals-table">
+            <tr>
+              <td>GST Amt.</td>
+              <td class="text-right">${gstAmount.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>SUB TOTAL</td>
+              <td class="text-right">${subTotal.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>Dis.</td>
+              <td class="text-right">${totalDiscount.toFixed(2)}</td>
+            </tr>
+          </table>
+          <div class="grand-total">
+            <span>GRAND TOTAL</span>
+            <span>${netAmount.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div style="text-align: center; font-size: 8px; font-style: italic; padding: 2px; border-top: 1px solid #000;">
+        Get well soon. Scan the Healthcare QR Code for complete health services, insurance, and government benefits.
       </div>
     </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 40px;" class="text-center">#</th>
-          <th>Description of Goods</th>
-          <th style="width: 80px;" class="text-center">Qty</th>
-          <th style="width: 100px;" class="text-right">Rate</th>
-          <th style="width: 80px;" class="text-right">Disc %</th>
-          <th style="width: 120px;" class="text-right">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsHtml}
-        <tr class="total-row">
-          <td colspan="3">TOTAL ITEMS: ${invoice.items?.length || 0}</td>
-          <td colspan="2" class="text-right">NET PAYABLE</td>
-          <td class="text-right" style="font-size: 14px;">₹${parseFloat(invoice.netAmount || invoice.net_payable).toLocaleString()}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div style="margin-top: 20px; display: flex; justify-content: space-between;">
-      <div style="max-width: 60%;">
-        <p style="font-size: 9px; font-weight: 800; text-decoration: underline; margin-bottom: 4px;">Terms & Conditions:</p>
-        <ol style="font-size: 8px; color: #64748b; padding-left: 14px;">
-          <li>Goods once sold will not be taken back or exchanged.</li>
-          <li>Subject to local jurisdiction.</li>
-          <li>We are not responsible for any damage after delivery.</li>
-        </ol>
-      </div>
-      <div style="text-align: right; margin-top: 20px;">
-        <div style="height: 60px;"></div>
-        <p style="font-size: 10px; font-weight: 900; border-top: 1px solid #1D3557; display: inline-block; padding-top: 4px; min-width: 150px;">Authorized Signatory</p>
-      </div>
+    
+    <div class="no-print" style="text-align: center; margin-top: 20px;">
+      <button onclick="window.print()" style="padding: 10px 20px; font-weight: bold; cursor: pointer;">Print Invoice</button>
     </div>
-  `;
-
-  printReport('Retail Invoice', html, company);
+    
+    <script>setTimeout(() => { window.print(); }, 800);</script>
+  </body></html>`);
+  win.document.close();
 }
 
 export function exportPOSInvoiceToExcel(invoice: any, company?: any) {

@@ -20,6 +20,8 @@ import { useDataFetch, useDatabaseStatus } from '../hooks/useDataFetch';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../services/apiClient';
 import { useNotificationSystem } from '../hooks/useNotifications';
+import ProductForm from './ProductForm';
+import { Product } from '../types';
 
 // --- ENHANCED INTERFACES ---
 
@@ -94,6 +96,7 @@ const PurchaseEnhanced: React.FC = () => {
   const { data: approvals = [], loading: loadingApprovals, refetch: refetchApprovals } = useDataFetch<any[]>('/api/purchase/approvals');
 
   const [isNewPurchaseModalOpen, setIsNewPurchaseModalOpen] = useState(false);
+  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
   const [newOrderForm, setNewOrderForm] = useState({
     invoice_no: `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
     supplier_id: '',
@@ -114,7 +117,7 @@ const PurchaseEnhanced: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  const { data: lists } = useDataFetch<any>('/api/purchase/lists/dropdown');
+  const { data: lists, refetch: refetchLists } = useDataFetch<any>('/api/purchase/lists/dropdown');
 
   const handleCreateOrder = async () => {
     if (!newOrderForm.supplier_id || newOrderItems.some(item => !item.product_id)) {
@@ -342,6 +345,21 @@ const PurchaseEnhanced: React.FC = () => {
   const currentBudget = useMemo(() => {
     return (budgets as any[] || []).find(b => b.category_id === newOrderForm.category_id);
   }, [budgets, newOrderForm.category_id]);
+
+  const handleCreateProduct = async (product: Partial<Product>) => {
+    try {
+      const response = await apiClient.post('/api/products', product);
+      if (response.id) {
+        success('New product created successfully');
+        setIsNewProductModalOpen(false);
+        refetchLists(); // Refresh the dropdown data
+      } else {
+        notifyError('Failed to create product');
+      }
+    } catch (err: any) {
+      notifyError(`Error: ${err.message}`);
+    }
+  };
 
   const handleRefreshAll = () => {
     refetchPurchases();
@@ -909,12 +927,20 @@ const PurchaseEnhanced: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Line Items Intelligence</h4>
-                  <button 
-                    onClick={() => handleAddItem(false)}
-                    className="flex items-center gap-1 text-[10px] font-black bg-blue-600 text-white uppercase tracking-widest hover:bg-blue-700 px-4 py-2 rounded-xl transition-all shadow-lg shadow-blue-200"
-                  >
-                    <Plus size={14} /> Add Item
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setIsNewProductModalOpen(true)}
+                      className="flex items-center gap-1 text-[10px] font-black bg-emerald-600 text-white uppercase tracking-widest hover:bg-emerald-700 px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-200"
+                    >
+                      <Plus size={14} /> New Product
+                    </button>
+                    <button 
+                      onClick={() => handleAddItem(false)}
+                      className="flex items-center gap-1 text-[10px] font-black bg-blue-600 text-white uppercase tracking-widest hover:bg-blue-700 px-4 py-2 rounded-xl transition-all shadow-lg shadow-blue-200"
+                    >
+                      <Plus size={14} /> Add Item
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="overflow-x-auto rounded-3xl border border-slate-200">
@@ -1119,10 +1145,16 @@ const PurchaseEnhanced: React.FC = () => {
                   <option value="LAB_EQUIPMENT">Lab Equipment</option>
                 </select>
                 <button 
+                  onClick={() => setIsNewProductModalOpen(true)}
+                  className="flex items-center gap-1 text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  <Plus size={14} /> New Product
+                </button>
+                <button 
                   onClick={() => handleAddItem(true)}
                   className="flex items-center gap-1 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all"
                 >
-                  <Plus size={14} /> Add Product
+                  <Plus size={14} /> Add Line Item
                 </button>
               </div>
             </div>
@@ -1203,6 +1235,18 @@ const PurchaseEnhanced: React.FC = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* New Product Modal */}
+      <Modal 
+        isOpen={isNewProductModalOpen} 
+        onClose={() => setIsNewProductModalOpen(false)}
+        maxWidth="4xl"
+      >
+        <ProductForm 
+          onSubmit={handleCreateProduct}
+          onCancel={() => setIsNewProductModalOpen(false)}
+        />
       </Modal>
     </ERPLayout>
   );

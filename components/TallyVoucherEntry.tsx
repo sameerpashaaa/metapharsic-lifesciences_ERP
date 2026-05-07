@@ -5,6 +5,7 @@ import {
   ArrowRight, Calculator, Clock, HelpCircle 
 } from 'lucide-react';
 import { useDataFetch } from '../hooks/useDataFetch';
+import { useCompany } from '../context/CompanyContext';
 import { apiClient } from '../services/apiClient';
 import { saveInvoice, savePurchase } from '../services/databaseService';
 import { printPOSInvoice } from '../utils/accountingExport';
@@ -18,10 +19,17 @@ interface VoucherEntryProps {
 }
 
 const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales', onClose, onSuccess, initialItems }) => {
+  const { company } = useCompany();
   const [voucherType, setVoucherType] = useState(initialType);
   const [invoiceNo, setInvoiceNo] = useState('1');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [partyName, setPartyName] = useState('Counter Customer');
+  const [patientName, setPatientName] = useState('');
+  const [patientAddress, setPatientAddress] = useState('');
+  const [customerMobile, setCustomerMobile] = useState('');
+  const [abhaNo, setAbhaNo] = useState('');
+  const [abhaAddress, setAbhaAddress] = useState('');
+  const [doctorName, setDoctorName] = useState('');
   const [salesLedger, setSalesLedger] = useState('Sales');
   const [items, setItems] = useState<any[]>(
     initialItems && initialItems.length > 0 
@@ -47,6 +55,7 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownSelectedIndex, setDropdownSelectedIndex] = useState(0);
   const dropdownListRef = useRef<HTMLDivElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Search/Dropdown data
   const { data: productsData } = useDataFetch('/api/pos/products');
@@ -93,6 +102,13 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [voucherType, items, partyName, activeVoucherTypes]);
+
+  // Auto-focus scanner on mount and type change
+  useEffect(() => {
+    if (['Sales', 'Purchase'].includes(voucherType)) {
+      setTimeout(() => scanInputRef.current?.focus(), 100);
+    }
+  }, [voucherType]);
 
   // Dropdown filtered lists with smart sorting
   const filteredParties = useMemo(() => {
@@ -204,6 +220,10 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
     handleItemChange(index, 'mrp', Number(batch?.mrp || product.mrp || rate || 0));
     handleItemChange(index, 'purchaseRate', getPurchaseRate(product, batch));
     handleItemChange(index, 'rate', rate || '');
+    handleItemChange(index, 'rack', product.rack || '');
+    handleItemChange(index, 'manufacturer', product.manufacturer || '');
+    handleItemChange(index, 'scheduleType', product.scheduleType || '');
+    handleItemChange(index, 'gstPercent', product.gst || product.gst_percent || 0);
     if (!items[index]?.quantity) {
       handleItemChange(index, 'quantity', '1');
     }
@@ -502,19 +522,32 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
           invoice_no: generatedInvoiceNo,
           invoice_date: date,
           party_name: partyName,
+          patient_name: patientName,
+          doctor_name: doctorName,
           payment_mode: 'Cash',
           items: filledItems.map(i => ({
             product_id: i.product_id || 'manual',
             product_name: i.name,
             batch_id: i.batch_id,
+            batch_number: i.batchNumber,
+            expiry_date: i.expiryDate,
             quantity: parseFloat(i.quantity),
             selling_rate: parseFloat(i.rate),
             mrp: i.mrp || parseFloat(i.rate),
             discount: 0,
-            totalAmount: i.amount
+            totalAmount: i.amount,
+            hsn: i.hsn,
+            rack: i.rack,
+            manufacturer: i.manufacturer,
+            scheduleType: i.scheduleType,
+            gstPercent: i.gstPercent
           })),
           net_payable: total,
-          total_taxable: total,
+          total_taxable: filledItems.reduce((acc, i) => {
+            const gst = parseFloat(i.gstPercent || 0);
+            const amount = parseFloat(i.amount || 0);
+            return acc + (amount / (1 + gst / 100));
+          }, 0),
           status: 'Completed'
           };
           try {
@@ -526,7 +559,18 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
           }
 
           if (response.success && print) {
-            printPOSInvoice({ ...payload, items: payload.items.map((i:any) => ({ ...i, productName: i.product_name, batchNumber: i.batch_id })) });
+            printPOSInvoice({ 
+              ...payload, 
+              patientName,
+              patientAddress,
+              customerMobile,
+              abhaNo,
+              abhaAddress,
+              doctorName,
+              netAmount: total,
+              subTotal: payload.total_taxable,
+              items: payload.items.map((i:any) => ({ ...i, productName: i.product_name, batchNumber: i.batch_number, expiryDate: i.expiry_date })) 
+            }, company);
           }
         }
 
@@ -752,6 +796,7 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
                   <label className="w-32 text-xs font-bold text-slate-600">Scan / Code</label>
                   <span className="text-slate-400">:</span>
                   <input
+                    ref={scanInputRef}
                     type="text"
                     value={scanValue}
                     onChange={e => setScanValue(e.target.value)}
@@ -802,6 +847,77 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
                     {renderDropdown('party')}
                   </div>
                 </div>
+
+                {voucherType === 'Sales' && (
+                   <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                     <div className="flex items-center gap-2">
+                       <label className="w-32 text-xs font-bold text-slate-600">Patient Name</label>
+                       <span className="text-slate-400">:</span>
+                       <input 
+                         type="text" 
+                         value={patientName} 
+                         onChange={e => setPatientName(e.target.value)}
+                         placeholder="Enter Patient Name"
+                         className="flex-1 bg-transparent border-b border-slate-300 outline-none text-xs font-black focus:border-blue-500"
+                       />
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <label className="w-32 text-xs font-bold text-slate-600">Mobile No.</label>
+                       <span className="text-slate-400">:</span>
+                       <input 
+                         type="text" 
+                         value={customerMobile} 
+                         onChange={e => setCustomerMobile(e.target.value)}
+                         placeholder="Enter Mobile Number"
+                         className="flex-1 bg-transparent border-b border-slate-300 outline-none text-xs font-black focus:border-blue-500"
+                       />
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <label className="w-32 text-xs font-bold text-slate-600">Patient Address</label>
+                       <span className="text-slate-400">:</span>
+                       <input 
+                         type="text" 
+                         value={patientAddress} 
+                         onChange={e => setPatientAddress(e.target.value)}
+                         placeholder="Enter Address"
+                         className="flex-1 bg-transparent border-b border-slate-300 outline-none text-xs font-black focus:border-blue-500"
+                       />
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <label className="w-32 text-xs font-bold text-slate-600">Doctor Name</label>
+                       <span className="text-slate-400">:</span>
+                       <input 
+                         type="text" 
+                         value={doctorName} 
+                         onChange={e => setDoctorName(e.target.value)}
+                         placeholder="Enter Doctor Name"
+                         className="flex-1 bg-transparent border-b border-slate-300 outline-none text-xs font-black focus:border-blue-500"
+                       />
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <label className="w-32 text-xs font-bold text-slate-600">ABHA No.</label>
+                       <span className="text-slate-400">:</span>
+                       <input 
+                         type="text" 
+                         value={abhaNo} 
+                         onChange={e => setAbhaNo(e.target.value)}
+                         placeholder="Enter ABHA Number"
+                         className="flex-1 bg-transparent border-b border-slate-300 outline-none text-xs font-black focus:border-blue-500"
+                       />
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <label className="w-32 text-xs font-bold text-slate-600">ABHA Address</label>
+                       <span className="text-slate-400">:</span>
+                       <input 
+                         type="text" 
+                         value={abhaAddress} 
+                         onChange={e => setAbhaAddress(e.target.value)}
+                         placeholder="Enter ABHA Address"
+                         className="flex-1 bg-transparent border-b border-slate-300 outline-none text-xs font-black focus:border-blue-500"
+                       />
+                     </div>
+                   </div>
+                 )}
                 {['Sales', 'Purchase'].includes(voucherType) && (
                   <div className="flex items-center gap-2">
                     <label className="w-32 text-xs font-bold text-slate-600">{voucherType === 'Sales' ? 'Sales Ledger' : 'Purchase Ledger'}</label>

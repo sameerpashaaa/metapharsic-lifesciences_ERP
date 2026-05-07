@@ -121,7 +121,7 @@ router.get('/lists/dropdown', async (req, res) => {
     );
 
     const { rows: products } = await db.query(
-      'SELECT id, name, code FROM products WHERE is_active = true ORDER BY name'
+      'SELECT id, name, code FROM products WHERE is_active IS NOT FALSE ORDER BY name'
     );
 
     res.json({
