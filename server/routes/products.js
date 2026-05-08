@@ -79,4 +79,15 @@ router.post('/', verifyTokenMiddleware, verifyRoleMiddleware(['ADMIN', 'PHARMACI
     }
 }));
 
+router.delete('/:id', verifyTokenMiddleware, verifyRoleMiddleware(['ADMIN', 'PHARMACIST']), verify2FAMiddleware, asyncRoute(async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.query('DELETE FROM products WHERE id = $1', [id]);
+        res.json({ success: true, message: 'Product deleted successfully' });
+    } catch (error) {
+        logger.error('Failed to delete product', { error: error.message });
+        res.status(500).json({ error: 'Failed to delete product' });
+    }
+}));
+
 module.exports = router;

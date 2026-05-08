@@ -195,7 +195,7 @@ export const getInvoiceById = async (id: string): Promise<SalesInvoice | null> =
 };
 
 
-export const updateInvoice = async (invoice: SalesInvoice): Promise<boolean> => {
+export const updateInvoice = async (invoice: any): Promise<boolean> => {
   try {
     // Update local storage
     const index = invoices.findIndex(inv => inv.id === invoice.id);
@@ -205,7 +205,31 @@ export const updateInvoice = async (invoice: SalesInvoice): Promise<boolean> => 
     }
     
     // Try backend update
-    await apiClient.put(`/invoices/${invoice.id}`, invoice);
+    await apiClient.put(`/pos/invoices/${invoice.id}`, {
+      invoice_no: invoice.invoiceNumber,
+      invoice_date: invoice.date,
+      payment_mode: invoice.paymentMode || 'Cash',
+      party_id: invoice.partyId,
+      party_name: invoice.customerName,
+      items: (invoice.items || []).map((item: any) => ({
+        product_id: item.productId || item.product_id,
+        batch_id: item.batchId || item.batch_id,
+        quantity: item.quantity,
+        selling_rate: item.rate || item.selling_rate,
+        discount: item.discount_amount || item.discount || 0,
+        cgst_rate: item.cgst_amount || 0,
+        sgst_rate: item.sgst_amount || 0,
+        igst_rate: item.igst_amount || 0,
+        mrp: item.mrp || item.rate,
+        totalAmount: item.total_amount || item.totalAmount
+      })),
+      total_taxable: invoice.taxableValue || invoice.subTotal || 0,
+      total_cgst: (invoice.totalGst || 0) / 2,
+      total_sgst: (invoice.totalGst || 0) / 2,
+      total_igst: 0,
+      round_off: invoice.roundOff || 0,
+      net_payable: invoice.netAmount
+    });
     return true;
   } catch (error) {
     console.error('Error updating invoice:', error);
@@ -220,7 +244,7 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
     saveToStorage();
     
     // Try backend delete
-    await apiClient.delete(`/invoices/${id}`);
+    await apiClient.delete(`/pos/invoices/${id}`);
     return true;
   } catch (error) {
     console.error('Error deleting invoice:', error);
@@ -246,6 +270,21 @@ export const saveProduct = async (product: Product): Promise<boolean> => {
   } catch (error) {
     console.warn('Backend API not available or error saving product:', error);
     return true; // Still return true because we saved locally
+  }
+};
+
+export const deleteProduct = async (id: string): Promise<boolean> => {
+  try {
+    // Remove from local storage
+    products = products.filter(p => p.id !== id);
+    saveToStorage();
+    
+    // Try backend delete using apiClient
+    await apiClient.delete(`/products/${id}`);
+    return true;
+  } catch (error) {
+    console.warn('Backend API not available or error deleting product:', error);
+    return true; // Still return true because we deleted locally
   }
 };
 

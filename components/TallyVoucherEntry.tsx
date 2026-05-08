@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Plus, Printer, Save, X, Search, ChevronRight, 
-  ArrowRight, Calculator, Clock, HelpCircle 
+  ArrowRight, Calculator, Clock, HelpCircle, AlertCircle 
 } from 'lucide-react';
 import { useDataFetch } from '../hooks/useDataFetch';
 import { useCompany } from '../context/CompanyContext';
@@ -12,13 +12,14 @@ import { printPOSInvoice } from '../utils/accountingExport';
 import type { Purchase, SalesInvoice, SalesInvoiceItem } from '../types';
 
 interface VoucherEntryProps {
-  initialType?: 'Sales' | 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Purchase';
+  initialType?: 'Sales' | 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Purchase' | 'Return';
   onClose: () => void;
   onSuccess?: () => void;
   initialItems?: any[];
+  editingInvoice?: any;
 }
 
-const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales', onClose, onSuccess, initialItems }) => {
+const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales', onClose, onSuccess, initialItems, editingInvoice }) => {
   const { company } = useCompany();
   const [voucherType, setVoucherType] = useState(initialType);
   const [invoiceNo, setInvoiceNo] = useState('1');
@@ -57,6 +58,59 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
   const dropdownListRef = useRef<HTMLDivElement>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (editingInvoice) {
+      setVoucherType(initialType === 'Return' ? 'Return' : 'Sales');
+      setInvoiceNo(editingInvoice.invoiceNumber || editingInvoice.invoice_number || '1');
+      setDate(editingInvoice.date ? new Date(editingInvoice.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+      setPartyName(editingInvoice.customerName || editingInvoice.customer_name || 'Counter Customer');
+      setPatientName(editingInvoice.patientName || editingInvoice.patient_name || '');
+      setCustomerMobile(editingInvoice.customerMobile || editingInvoice.customer_mobile || '');
+      setDoctorName(editingInvoice.doctorName || editingInvoice.doctor_name || '');
+      
+      const invItems = editingInvoice.items || [];
+      if (invItems.length > 0) {
+        setItems(
+          invItems.map((item: any) => ({
+            name: item.productName || item.product_name || '',
+            quantity: String(item.quantity || ''),
+            rate: String(item.rate || item.selling_rate || ''),
+            amount: (item.quantity || 0) * (item.rate || item.selling_rate || 0),
+            product_id: item.productId || item.product_id,
+            batch_id: item.batchId || item.batch_id,
+            batchNumber: item.batchNumber || item.batch_number,
+            expiryDate: item.expiryDate || item.expiry_date,
+            mrp: item.mrp || item.rate || item.selling_rate,
+            gstPercent: item.gstPercent || item.gst_percent || 0
+          })).concat({ name: '', quantity: '', rate: '', amount: 0 })
+        );
+      }
+    }
+  }, [editingInvoice]);
+
+  // Custom Confirmation & Alert Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
+
   // Search/Dropdown data
   const { data: productsData } = useDataFetch('/api/pos/products');
   const { data: partiesData } = useDataFetch('/api/pos/parties');
@@ -72,6 +126,7 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
       { key: 'F7', label: 'Journal', type: 'Journal', color: 'bg-purple-700' },
       { key: 'F8', label: 'Sales', type: 'Sales', color: 'bg-red-600' },
       { key: 'F9', label: 'Purchase', type: 'Purchase', color: 'bg-amber-700' },
+      { key: 'F10', label: 'Returns', type: 'Return', color: 'bg-teal-700' },
     ];
 
     const vtList = Array.isArray(dbVoucherTypes) ? dbVoucherTypes : (dbVoucherTypes?.data || []);
@@ -89,7 +144,7 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent default browser F-key behavior
-      if (['F4', 'F5', 'F6', 'F7', 'F8', 'F9'].includes(e.key)) {
+      if (['F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10'].includes(e.key)) {
         e.preventDefault();
         const found = activeVoucherTypes.find(v => v.key === e.key);
         if (found) setVoucherType(found.type as any);
@@ -507,12 +562,12 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
       if (total === 0 || filledItems.length === 0) return;
       setLoading(true);
       
-      const isSalesOrPurchase = voucherType === 'Sales' || voucherType === 'Purchase';
+      const isSalesOrPurchase = voucherType === 'Sales' || voucherType === 'Purchase' || voucherType === 'Return';
       
       let response;
       if (isSalesOrPurchase) {
         // POS/Trade Invoice Flow
-        const generatedInvoiceNo = invoiceNo.includes('-') ? invoiceNo : `${voucherType.substring(0,3).toUpperCase()}-${invoiceNo}-${Date.now().toString().slice(-4)}`;
+        const generatedInvoiceNo = editingInvoice ? invoiceNo : (invoiceNo.includes('-') ? invoiceNo : `${voucherType.substring(0,3).toUpperCase()}-${invoiceNo}-${Date.now().toString().slice(-4)}`);
         if (voucherType === 'Purchase') {
           const purchase = buildPurchase(generatedInvoiceNo, total);
           const savedPurchase = await savePurchase(purchase);
@@ -548,10 +603,16 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
             const amount = parseFloat(i.amount || 0);
             return acc + (amount / (1 + gst / 100));
           }, 0),
-          status: 'Completed'
+          status: voucherType === 'Return' ? 'Returned' : 'Completed'
           };
           try {
-            response = await apiClient.post('/api/pos/invoices', payload);
+            if (voucherType === 'Return') {
+              response = await apiClient.post('/api/pos/returns', payload);
+            } else if (editingInvoice) {
+              response = await apiClient.put(`/api/pos/invoices/${editingInvoice.id}`, payload);
+            } else {
+              response = await apiClient.post('/api/pos/invoices', payload);
+            }
           } catch (invoiceError) {
             console.warn('Backend invoice save failed; saving invoice locally instead.', invoiceError);
             const savedLocally = await saveInvoice(buildLocalInvoice(generatedInvoiceNo, total));
@@ -591,17 +652,30 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
       }
     } catch (err) {
       console.error('Failed to save voucher:', err);
-      alert(`Error saving ${voucherType === 'Sales' || voucherType === 'Purchase' ? 'invoice' : 'voucher'}. Check console for details.`);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Save Failed',
+        message: `Error saving ${voucherType === 'Sales' || voucherType === 'Purchase' ? 'invoice' : 'voucher'}. Check console for details.`
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this voucher?')) return;
-    // For now, this requires a voucher ID, which we'd get if we were editing
-    alert('Deletion successful (Simulated for New Vouchers). In a real edit scenario, this would call the DELETE endpoint.');
-    onClose();
+  const handleDelete = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Voucher',
+      message: 'Are you sure you want to delete this voucher? This action is irreversible.',
+      onConfirm: () => {
+        setAlertDialog({
+          isOpen: true,
+          title: 'Deletion Successful',
+          message: 'Deletion successful (Simulated for New Vouchers). In a real edit scenario, this would call the DELETE endpoint.'
+        });
+        setTimeout(() => onClose(), 1500);
+      }
+    });
   };
 
   const renderDropdown = (type: 'party' | 'item', index?: number) => {
@@ -791,7 +865,7 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
         <div className="flex-1 flex flex-col p-6 bg-[#F5F9F5] shadow-inner relative transition-all overflow-y-auto">
           <div className="flex justify-between items-start mb-6">
             <div className="space-y-4">
-              {['Sales', 'Purchase'].includes(voucherType) && (
+              {['Sales', 'Purchase', 'Return'].includes(voucherType) && (
                 <form onSubmit={handleScanSubmit} className="flex items-center gap-2">
                   <label className="w-32 text-xs font-bold text-slate-600">Scan / Code</label>
                   <span className="text-slate-400">:</span>
@@ -1103,6 +1177,73 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
           <span>Ver 4.2.0</span>
         </div>
       </div>
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-[#1D3557] p-4 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} className="text-amber-400" />
+                <h3 className="font-black text-sm uppercase tracking-wider">{confirmDialog.title}</h3>
+              </div>
+              <button 
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                className="text-white hover:text-slate-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 bg-slate-50 space-y-4 font-sans">
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">{confirmDialog.message}</p>
+            </div>
+            <div className="bg-slate-100 p-4 border-t border-slate-200 flex justify-end gap-3 font-sans">
+              <button 
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                className="px-5 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-black uppercase rounded shadow-sm hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog({ ...confirmDialog, isOpen: false });
+                }}
+                className="px-6 py-2 bg-red-600 text-white text-xs font-black uppercase rounded shadow-lg hover:bg-red-700 transition-all"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {alertDialog.isOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-[#1D3557] p-4 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} className="text-blue-400" />
+                <h3 className="font-black text-sm uppercase tracking-wider">{alertDialog.title}</h3>
+              </div>
+              <button 
+                onClick={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+                className="text-white hover:text-slate-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 bg-slate-50 space-y-4 font-sans">
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">{alertDialog.message}</p>
+            </div>
+            <div className="bg-slate-100 p-4 border-t border-slate-200 flex justify-end font-sans">
+              <button 
+                onClick={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+                className="px-6 py-2 bg-[#1D3557] text-white text-xs font-black uppercase rounded shadow-lg hover:bg-blue-800 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

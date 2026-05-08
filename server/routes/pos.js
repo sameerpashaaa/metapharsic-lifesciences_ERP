@@ -318,6 +318,196 @@ router.post('/invoices', async (req, res) => {
 });
 
 /**
+ * PUT /api/pos/invoices/:id
+ * Update an existing sales invoice and reconcile stock quantities
+ */
+router.put('/invoices/:id', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { id } = req.params;
+    const {
+      invoice_no,
+      invoice_date,
+      payment_mode = 'Cash',
+      party_id,
+      party_name,
+      items = [],
+      total_taxable = 0,
+      total_cgst = 0,
+      total_sgst = 0,
+      total_igst = 0,
+      round_off = 0,
+      net_payable = 0
+    } = req.body;
+
+    if (!invoice_no || !invoice_date || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invoice number, date, and at least one item are required'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. Fetch previous items to restore batch stock quantities
+    const { rows: oldItems } = await client.query(
+      `SELECT * FROM sales_invoice_items WHERE invoice_id = $1`,
+      [id]
+    );
+
+    for (const oldItem of oldItems) {
+      if (oldItem.batch_id) {
+        await client.query(
+          `UPDATE batches SET quantity = quantity + $1 WHERE id = $2`,
+          [oldItem.quantity, oldItem.batch_id]
+        );
+      }
+    }
+
+    // 2. Delete old items
+    await client.query(
+      `DELETE FROM sales_invoice_items WHERE invoice_id = $1`,
+      [id]
+    );
+
+    // Create party if not exists (for walk-in customers)
+    let finalPartyId = party_id;
+    if (!finalPartyId && party_name) {
+      const { rows: partyResult } = await client.query(
+        `INSERT INTO parties (name, mobile, type, status)
+         VALUES ($1, $2, 'Customer', 'Active')
+         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+         RETURNING id`,
+        [party_name, '']
+      );
+      if (partyResult.length) {
+        finalPartyId = partyResult[0].id;
+      }
+    }
+
+    // 3. Update invoice header
+    const { rows: invoiceResult } = await client.query(
+      `UPDATE sales_invoices 
+       SET invoice_number = $1, date = $2, invoice_date = $2, party_id = $3, payment_mode = $4, customer_name = $5,
+           taxable_value = $6, sub_total = $6, total_gst = $7, round_off = $8, 
+           net_payable = $9, net_amount = $9, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $10
+       RETURNING id, invoice_number`,
+      [invoice_no, invoice_date, finalPartyId, payment_mode, party_name,
+       total_taxable, (total_cgst + total_sgst + total_igst), round_off,
+       net_payable, id]
+    );
+
+    if (invoiceResult.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // 4. Insert new items and deduct stock quantities
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO sales_invoice_items 
+         (invoice_id, product_id, batch_id, quantity, rate, 
+          discount_amount, taxable_value, cgst_amount, sgst_amount, igst_amount, mrp, total_amount)
+         VALUES ($1, $2, $3, $4, $5, $6, $11, $7, $8, $9, $10, $11)`,
+        [id, item.product_id === 'manual' ? null : item.product_id, item.batch_id || null, item.quantity, item.selling_rate || item.rate,
+         item.discount || 0, item.totalAmount || (item.quantity * (item.selling_rate || item.rate)), item.cgst_rate || 0, item.sgst_rate || 0, item.igst_rate || 0, item.mrp || item.selling_rate || item.rate, item.totalAmount || (item.quantity * (item.selling_rate || item.rate))]
+      );
+
+      if (item.batch_id) {
+        await client.query(
+          `UPDATE batches SET quantity = quantity - $1 WHERE id = $2`,
+          [item.quantity, item.batch_id]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Invoice updated successfully',
+      data: invoiceResult[0]
+    });
+
+    logger.http('PUT', `/api/pos/invoices/${id}`, 200, items.length, req.ip, req.user?.userId || null);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Failed to update invoice', { error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to update invoice' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * DELETE /api/pos/invoices/:id
+ * Delete a sales invoice and restore batch stock quantities
+ */
+router.delete('/invoices/:id', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { id } = req.params;
+
+    await client.query('BEGIN');
+
+    // 1. Fetch previous items to restore batch stock quantities
+    const { rows: items } = await client.query(
+      `SELECT * FROM sales_invoice_items WHERE invoice_id = $1`,
+      [id]
+    );
+
+    for (const item of items) {
+      if (item.batch_id) {
+        await client.query(
+          `UPDATE batches SET quantity = quantity + $1 WHERE id = $2`,
+          [item.quantity, item.batch_id]
+        );
+      }
+    }
+
+    // 2. Delete invoice items
+    await client.query(
+      `DELETE FROM sales_invoice_items WHERE invoice_id = $1`,
+      [id]
+    );
+
+    // 3. Delete invoice header
+    const { rowCount } = await client.query(
+      `DELETE FROM sales_invoices WHERE id = $1`,
+      [id]
+    );
+
+    if (rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Invoice deleted successfully'
+    });
+
+    logger.http('DELETE', `/api/pos/invoices/${id}`, 200, items.length, req.ip, req.user?.userId || null);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Failed to delete invoice', { error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to delete invoice' });
+  } finally {
+    client.release();
+  }
+});
+
+
+
+
+
+
+
+
+/**
  * GET /api/pos/parties/:id
  * Fetch a single party by ID
  */
@@ -654,6 +844,99 @@ router.get('/dashboard-summary', async (req, res) => {
   } catch (error) {
     logger.error('Failed to fetch POS dashboard summary', { error: error.message });
     res.status(500).json({ success: false, error: 'Failed to fetch POS dashboard summary' });
+  }
+});
+
+/**
+ * POST /api/pos/returns
+ * Create a new Sales Return (Credit Note) and increase inventory batch quantities
+ */
+router.post('/returns', async (req, res) => {
+  try {
+    const {
+      invoice_no,
+      invoice_date,
+      party_id,
+      party_name,
+      items = [],
+      net_payable = 0
+    } = req.body;
+
+    if (!invoice_no || !invoice_date || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Return voucher number, date, and items are required'
+      });
+    }
+
+    // Create party if not exists (for walk-in customers)
+    let finalPartyId = party_id;
+    if (!finalPartyId && party_name) {
+      try {
+        const { rows: partyResult } = await db.query(
+          `INSERT INTO parties (name, mobile, type, status)
+           VALUES ($1, $2, 'Customer', 'Active')
+           RETURNING id`,
+          [party_name, '']
+        );
+        finalPartyId = partyResult[0].id;
+      } catch (err) {
+        // If already exists, try to fetch it
+        const { rows: partySearch } = await db.query(
+          `SELECT id FROM parties WHERE name = $1 LIMIT 1`,
+          [party_name]
+        );
+        if (partySearch.length > 0) {
+          finalPartyId = partySearch[0].id;
+        }
+      }
+    }
+
+    // Insert sales return invoice with status 'Returned'
+    const { rows: invoiceResult } = await db.query(
+      `INSERT INTO sales_invoices 
+       (invoice_number, date, time, invoice_date, party_id, payment_mode, customer_name,
+        taxable_value, sub_total, total_gst, round_off, 
+        net_payable, net_amount, status, created_by)
+       VALUES ($1, $2, CURRENT_TIME, $2, $3, 'Cash', $4, $5, $5, 0, 0, $6, $6, 'Returned', $7)
+       RETURNING id, invoice_number`,
+      [invoice_no, invoice_date, finalPartyId, party_name, net_payable, req.user?.userId || null]
+    );
+
+    const invoiceId = invoiceResult[0].id;
+
+    // Insert line items and increment batch quantities
+    for (const item of items) {
+      await db.query(
+        `INSERT INTO sales_invoice_items 
+         (invoice_id, product_id, batch_id, quantity, rate, 
+          discount_amount, taxable_value, cgst_amount, sgst_amount, igst_amount, mrp, total_amount)
+         VALUES ($1, $2, $3, $4, $5, 0, $6, 0, 0, 0, $7, $6)`,
+        [invoiceId, item.product_id === 'manual' ? null : item.product_id, item.batch_id || null, item.quantity, item.selling_rate || item.rate,
+         item.totalAmount || (item.quantity * (item.selling_rate || item.rate)), item.mrp || item.rate]
+      );
+
+      // Increment batch quantity (Sales Return adds items back to stock)
+      if (item.batch_id) {
+        await db.query(
+          `UPDATE batches SET quantity = quantity + $1 WHERE id = $2`,
+          [item.quantity, item.batch_id]
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: invoiceId,
+        invoice_number: invoice_no
+      }
+    });
+
+    logger.http('POST', '/api/pos/returns', 200, items.length, req.ip, req.user?.userId);
+  } catch (error) {
+    logger.error('Failed to create sales return', { error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to create sales return' });
   }
 });
 

@@ -14,9 +14,9 @@ import { Product, Batch, SalesInvoice, SalesInvoiceItem, Party, VoucherTypeMaste
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { 
-
   saveInvoice, getAllInvoices, getInvoiceById, searchProducts, getAllParties, 
-  saveParty, getAllProducts, getAllVoucherTypes, saveVoucherType, deleteVoucherType 
+  saveParty, getAllProducts, getAllVoucherTypes, saveVoucherType, deleteVoucherType,
+  saveProduct, deleteProduct, updateInvoice, deleteInvoice
 } from '../services/databaseService';
 import { apiClient } from '../services/apiClient';
 import { calculateLineItem, calculateInvoiceSummary, calculateBatchValuation, validateDiscount, applyScheme, calculateRates } from '../utils/tallyERP11Calculations';
@@ -85,6 +85,7 @@ const StrategicPOS: React.FC = () => {
     { id: 'VOUCHER_ENTRY_Journal', label: 'F7: Journal', icon: <FileText size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Journal', 'Journal Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Journal', group: 'Accounting' },
     { id: 'NEW_INVOICE', label: 'F8: Sales', icon: <Plus size={14}/>, onClick: () => openTab('NEW_INVOICE', 'Sales Voucher'), isActive: activeTab === 'NEW_INVOICE', group: 'Accounting' },
     { id: 'VOUCHER_ENTRY_Purchase', label: 'F9: Purchase', icon: <ShoppingBag size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Purchase', 'Purchase Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Purchase', group: 'Accounting' },
+    { id: 'VOUCHER_ENTRY_Return', label: 'F10: Returns', icon: <RefreshCcw size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Return', 'Return Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Return', group: 'Accounting' },
     { id: 'INVOICE_HISTORY', label: 'Sales Register', icon: <History size={14}/>, onClick: () => openTab('INVOICE_HISTORY', 'Sales History'), isActive: activeTab === 'INVOICE_HISTORY', group: 'Reports' },
     { id: 'PRODUCT_CATALOG', label: 'Item/Stock Master', icon: <Package size={14}/>, onClick: () => openTab('PRODUCT_CATALOG', 'Item Master'), isActive: activeTab === 'PRODUCT_CATALOG', group: 'Inventory' },
     { id: 'CUSTOMER_LIST', label: 'Customer Database', icon: <Users size={14}/>, onClick: () => openTab('CUSTOMER_LIST', 'Customers'), isActive: activeTab === 'CUSTOMER_LIST', group: 'CRM' },
@@ -95,7 +96,7 @@ const StrategicPOS: React.FC = () => {
   const topActions = [
     { label: 'Counter Sale (F8)', onClick: () => openTab('NEW_INVOICE', 'Counter Sale'), icon: <ShoppingCart size={14}/> },
     { label: 'Wholesale (F9)', onClick: () => openTab('WHOLESALE_BILL', 'Wholesale'), icon: <Briefcase size={14}/> },
-    { label: 'Returns (F10)', onClick: () => openTab('SALES_RETURN', 'Sales Return'), icon: <RefreshCcw size={14}/> },
+    { label: 'Returns (F10)', onClick: () => openTab('VOUCHER_ENTRY_Return', 'Return Voucher'), icon: <RefreshCcw size={14}/> },
     { label: 'Day Book', onClick: () => openTab('DAY_BOOK', 'Day Book'), icon: <Receipt size={14}/> },
   ];
 
@@ -104,6 +105,7 @@ const StrategicPOS: React.FC = () => {
   const [cartItems, setCartItems] = useState<SalesInvoiceItem[]>([]);
   const [savedInvoices, setSavedInvoices] = useState<SalesInvoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [availableParties, setAvailableParties] = useState<Party[]>([]);
@@ -180,6 +182,37 @@ const StrategicPOS: React.FC = () => {
     current_balance: 0
   });
   const [partySearch, setPartySearch] = useState('');
+
+  // --- Product Management State ---
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [isEditingProduct, setIsEditingProduct] = useState(false);
+  const [productForm, setProductForm] = useState<Partial<Product>>({
+    name: '',
+    genericName: '',
+    manufacturer: '',
+    packing: '',
+    uom: 'Strip',
+    hsn: '',
+    gst: 12,
+    minStockLevel: 50,
+    reorderLevel: 100,
+    therapeuticCategory: 'OTC',
+    totalStock: 0
+  });
+  const [catalogSearch, setCatalogSearch] = useState('');
+
+  // --- Custom Confirmation Dialog State ---
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   const loadPosDashboardSummary = async () => {
     const response = await apiClient.get(`/pos/dashboard-summary?t=${Date.now()}`);
@@ -721,6 +754,7 @@ const StrategicPOS: React.FC = () => {
                   <th className="p-4">Date</th>
                   <th className="p-4 text-right">Amount</th>
                   <th className="p-4 text-center">Status</th>
+                  <th className="p-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -745,11 +779,60 @@ const StrategicPOS: React.FC = () => {
                         {inv.status}
                       </span>
                     </td>
+                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-center gap-1.5">
+                        <button 
+                          onClick={() => {
+                            setEditingInvoice({
+                              id: inv.id,
+                              invoiceNumber: inv.invoice_number,
+                              date: inv.invoice_date,
+                              customerName: inv.customer_name,
+                              patientName: inv.patient_name,
+                              customerMobile: inv.customer_mobile,
+                              doctorName: inv.doctor_name,
+                              items: inv.items || []
+                            });
+                            openTab('EDIT_INVOICE', `Edit: ${inv.invoice_number}`);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                          title="Edit Invoice"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingInvoice({
+                              id: inv.id,
+                              invoiceNumber: inv.invoice_number,
+                              date: inv.invoice_date,
+                              customerName: inv.customer_name,
+                              patientName: inv.patient_name,
+                              customerMobile: inv.customer_mobile,
+                              doctorName: inv.doctor_name,
+                              items: inv.items || []
+                            });
+                            openTab('VOUCHER_ENTRY_Return', `Return: ${inv.invoice_number}`);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded transition-all"
+                          title="Sales Return (Credit Note)"
+                        >
+                          <RefreshCcw size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteInvoice(inv.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-all"
+                          title="Delete Invoice"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {posDashboardSummary.recentInvoices.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-xs font-bold text-slate-400">
+                    <td colSpan={6} className="p-6 text-center text-xs font-bold text-slate-400">
                       No invoice records available from the database for this view.
                     </td>
                   </tr>
@@ -803,8 +886,13 @@ const StrategicPOS: React.FC = () => {
     <TallyVoucherEntry 
       initialType={type} 
       initialItems={type === 'Sales' ? cartItems : []}
-      onClose={() => closeTab(activeTab)} 
+      editingInvoice={activeTab === 'EDIT_INVOICE' || activeTab.startsWith('VOUCHER_ENTRY_Return') ? editingInvoice : null}
+      onClose={() => {
+        closeTab(activeTab);
+        if (activeTab === 'EDIT_INVOICE' || activeTab.startsWith('VOUCHER_ENTRY_Return')) setEditingInvoice(null);
+      }} 
       onSuccess={() => {
+        if (activeTab === 'EDIT_INVOICE' || activeTab.startsWith('VOUCHER_ENTRY_Return')) setEditingInvoice(null);
         // Refresh invoices list after successful save
         const load = async () => {
           const [invoiceData] = await Promise.all([
@@ -837,6 +925,127 @@ const StrategicPOS: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveProduct = async () => {
+    if (!productForm.name || !productForm.genericName || !productForm.manufacturer) return;
+    setLoading(true);
+    try {
+      const productData: any = {
+        ...productForm,
+        id: isEditingProduct && (productForm as any).id ? (productForm as any).id : `PROD-${Date.now()}`
+      };
+      const success = await saveProduct(productData);
+      if (success) {
+        const updated = await getAllProducts();
+        setAvailableProducts(updated);
+        setShowProductModal(false);
+        addNotification({
+          type: 'success',
+          title: isEditingProduct ? 'Product Updated' : 'Product Created',
+          message: `Product "${productData.name}" saved successfully.`,
+          priority: 'medium',
+          module: 'Inventory',
+          sourceTable: 'products',
+          sourceLabel: 'Product Save'
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to save product:', err);
+      addNotification({
+        type: 'error',
+        title: 'Save Product Failed',
+        message: err.message || 'An error occurred.',
+        priority: 'high',
+        module: 'Inventory',
+        sourceTable: 'products',
+        sourceLabel: 'Product Save'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Product Master SKU',
+      message: 'Are you sure you want to delete this product? All linked batches will be permanently removed! This action is irreversible.',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const success = await deleteProduct(id);
+          if (success) {
+            const updated = await getAllProducts();
+            setAvailableProducts(updated);
+            addNotification({
+              type: 'success',
+              title: 'Product Deleted',
+              message: 'Product deleted successfully from the master ledger.',
+              priority: 'medium',
+              module: 'Inventory',
+              sourceTable: 'products',
+              sourceLabel: 'Product Delete'
+            });
+          }
+        } catch (err: any) {
+          console.error('Failed to delete product:', err);
+          addNotification({
+            type: 'error',
+            title: 'Delete Product Failed',
+            message: err.message || 'An error occurred.',
+            priority: 'high',
+            module: 'Inventory',
+            sourceTable: 'products',
+            sourceLabel: 'Product Delete'
+          });
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleDeleteInvoice = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Sales Invoice',
+      message: 'Are you sure you want to delete this sales invoice? Linked item sales and batch stocks will be automatically restored/re-adjusted in the database! This action is irreversible.',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const success = await deleteInvoice(id);
+          if (success) {
+            setShowInvoicePreview(false);
+            const updated = await getAllInvoices();
+            setSavedInvoices(updated);
+            await loadPosDashboardSummary();
+            addNotification({
+              type: 'success',
+              title: 'Invoice Deleted',
+              message: 'Invoice deleted successfully. Inventory batch stocks have been rolled back correctly.',
+              priority: 'high',
+              module: 'POS',
+              sourceTable: 'sales_invoices',
+              sourceLabel: 'Invoice Delete'
+            });
+          }
+        } catch (err: any) {
+          console.error('Failed to delete invoice:', err);
+          addNotification({
+            type: 'error',
+            title: 'Delete Invoice Failed',
+            message: err.message || 'An error occurred.',
+            priority: 'high',
+            module: 'POS',
+            sourceTable: 'sales_invoices',
+            sourceLabel: 'Invoice Delete'
+          });
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const renderCustomerDatabase = () => (
@@ -1070,23 +1279,50 @@ const StrategicPOS: React.FC = () => {
       {activeTab === 'POS_DASHBOARD' && renderLiveDashboard()}
       {activeTab.startsWith('VOUCHER_ENTRY_') && renderVoucherEntry(activeTab.split('_').pop() as any)}
       {activeTab === 'NEW_INVOICE' && renderVoucherEntry('Sales')}
+      {activeTab === 'EDIT_INVOICE' && renderVoucherEntry('Sales')}
       {activeTab === 'WHOLESALE_BILL' && renderVoucherEntry('Sales')}
       {activeTab === 'VOUCHER_TYPE_SETUP' && renderVoucherTypeSetup()}
       {activeTab === 'CUSTOMER_LIST' && renderCustomerDatabase()}
       {activeTab === 'PRODUCT_CATALOG' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-black text-xs text-slate-700 uppercase tracking-widest flex items-center gap-2">
               <Package size={14} className="text-blue-600"/>
               Inventory Catalog
             </h3>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-2 text-slate-400" size={14} />
-              <input 
-                type="text" 
-                placeholder="Search catalog..." 
-                className="w-full pl-10 pr-4 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none"
-              />
+            <div className="flex gap-3">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-2 text-slate-400" size={14} />
+                <input 
+                  type="text" 
+                  value={catalogSearch}
+                  onChange={e => setCatalogSearch(e.target.value)}
+                  placeholder="Search catalog..." 
+                  className="w-full pl-10 pr-4 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button 
+                onClick={() => {
+                  setProductForm({
+                    name: '',
+                    genericName: '',
+                    manufacturer: '',
+                    packing: '',
+                    uom: 'Strip',
+                    hsn: '',
+                    gst: 12,
+                    minStockLevel: 50,
+                    reorderLevel: 100,
+                    therapeuticCategory: 'OTC',
+                    totalStock: 0
+                  });
+                  setIsEditingProduct(false);
+                  setShowProductModal(true);
+                }}
+                className="px-4 py-1.5 bg-[#1D3557] text-white text-[10px] font-black uppercase rounded-lg shadow-lg hover:bg-blue-800 transition-all flex items-center gap-2"
+              >
+                <Plus size={14} /> Add New SKU
+              </button>
             </div>
           </div>
           
@@ -1103,49 +1339,89 @@ const StrategicPOS: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {availableProducts.map(prod => (
-                  <React.Fragment key={prod.id}>
-                    <tr className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4">
-                        <p className="text-xs font-black text-slate-800">{prod.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">{prod.packing}</p>
-                      </td>
-                      <td className="p-4 text-xs text-slate-600">{prod.genericName}</td>
-                      <td className="p-4 text-xs font-bold text-slate-500">{prod.manufacturer}</td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black ${prod.totalStock > 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {prod.totalStock} {prod.uom}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                         <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">{prod.therapeuticCategory}</span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Add to Bill">
-                          <Plus size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                    {/* Render batches if they exist */}
-                    {prod.batches && prod.batches.map(batch => (
-                      <tr key={batch.id} className="bg-slate-50/50 border-l-4 border-blue-200">
-                        <td className="p-2 pl-8 text-[10px] font-bold text-slate-500">Batch: {batch.batchNumber}</td>
-                        <td className="p-2 text-[10px] text-slate-400">Exp: {batch.expiryDate}</td>
-                        <td className="p-2 text-[10px] text-slate-400">MRP: ₹{batch.mrp}</td>
-                        <td className="p-2 text-center text-[10px] font-black text-blue-600">{batch.stock}</td>
-                        <td className="p-2 text-[10px] font-bold text-slate-500">Rate: ₹{batch.sellingRate}</td>
-                        <td className="p-2 text-center">
-                          <button 
-                            onClick={() => addBatchToCart(prod, batch)}
-                            className="px-3 py-1 bg-[#1D3557] text-white text-[9px] font-black uppercase rounded hover:bg-blue-600 transition-colors"
-                          >
-                            SELECT
-                          </button>
+                {(() => {
+                  const filtered = availableProducts.filter(prod => 
+                    !catalogSearch || 
+                    prod.name?.toLowerCase().includes(catalogSearch.toLowerCase()) || 
+                    prod.genericName?.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+                    prod.manufacturer?.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+                    prod.therapeuticCategory?.toLowerCase().includes(catalogSearch.toLowerCase())
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} className="p-20 text-center text-slate-400 italic font-black uppercase tracking-widest">
+                          No matching product catalog records found.
                         </td>
                       </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
+                    );
+                  }
+
+                  return filtered.map(prod => (
+                    <React.Fragment key={prod.id}>
+                      <tr className="hover:bg-slate-50 transition-colors group">
+                        <td className="p-4">
+                          <p className="text-xs font-black text-slate-800 uppercase">{prod.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">{prod.packing}</p>
+                        </td>
+                        <td className="p-4 text-xs text-slate-600">{prod.genericName}</td>
+                        <td className="p-4 text-xs font-bold text-slate-500">{prod.manufacturer}</td>
+                        <td className="p-4 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black ${prod.totalStock > 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {prod.totalStock} {prod.uom}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                           <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">{prod.therapeuticCategory}</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex justify-center gap-1.5">
+                            <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Add to Bill">
+                              <Plus size={14} />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setProductForm(prod);
+                                setIsEditingProduct(true);
+                                setShowProductModal(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" 
+                              title="Edit SKU"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteProduct(prod.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" 
+                              title="Delete Product"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Render batches if they exist */}
+                      {prod.batches && prod.batches.map(batch => (
+                        <tr key={batch.id} className="bg-slate-50/50 border-l-4 border-blue-200">
+                          <td className="p-2 pl-8 text-[10px] font-bold text-slate-500">Batch: {batch.batchNumber}</td>
+                          <td className="p-2 text-[10px] text-slate-400">Exp: {batch.expiryDate}</td>
+                          <td className="p-2 text-[10px] text-slate-400">MRP: ₹{batch.mrp}</td>
+                          <td className="p-2 text-center text-[10px] font-black text-blue-600">{batch.stock}</td>
+                          <td className="p-2 text-[10px] font-bold text-slate-500">Rate: ₹{batch.sellingRate}</td>
+                          <td className="p-2 text-center">
+                            <button 
+                              onClick={() => addBatchToCart(prod, batch)}
+                              className="px-3 py-1 bg-[#1D3557] text-white text-[9px] font-black uppercase rounded hover:bg-blue-600 transition-colors"
+                            >
+                              SELECT
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
@@ -1219,16 +1495,63 @@ const StrategicPOS: React.FC = () => {
                   <td className="p-4 text-xs font-bold text-right">₹{(inv.taxableValue || 0).toLocaleString()}</td>
                   <td className="p-4 text-xs font-bold text-right">₹{(inv.totalGst || 0).toLocaleString()}</td>
                   <td className="p-4 text-xs font-black text-right">₹{(inv.netAmount || 0).toLocaleString()}</td>
-                  <td className="p-4 text-center">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewInvoice(inv.id);
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
-                    >
-                      <Eye size={14} />
-                    </button>
+                  <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-center gap-1.5">
+                      <button 
+                        onClick={() => {
+                          handleViewInvoice(inv.id);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                        title="View Invoice"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingInvoice({
+                            id: inv.id,
+                            invoiceNumber: inv.invoiceNumber,
+                            date: inv.date,
+                            customerName: inv.customerName,
+                            patientName: inv.patientName,
+                            customerMobile: inv.customerMobile,
+                            doctorName: inv.doctorName,
+                            items: inv.items || []
+                          });
+                          openTab('EDIT_INVOICE', `Edit: ${inv.invoiceNumber}`);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                        title="Edit Invoice"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingInvoice({
+                            id: inv.id,
+                            invoiceNumber: inv.invoiceNumber,
+                            date: inv.date,
+                            customerName: inv.customerName,
+                            patientName: inv.patientName,
+                            customerMobile: inv.customerMobile,
+                            doctorName: inv.doctorName,
+                            items: inv.items || []
+                          });
+                          openTab('VOUCHER_ENTRY_Return', `Return: ${inv.invoiceNumber}`);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded transition-all"
+                        title="Sales Return (Credit Note)"
+                      >
+                        <RefreshCcw size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteInvoice(inv.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-all"
+                        title="Delete Invoice"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1376,6 +1699,32 @@ const StrategicPOS: React.FC = () => {
               </div>
               <div className="flex gap-3">
                 <button 
+                  onClick={() => {
+                    setEditingInvoice(selectedInvoice);
+                    setShowInvoicePreview(false);
+                    openTab('EDIT_INVOICE', `Edit: ${selectedInvoice.invoiceNumber || selectedInvoice.invoice_number}`);
+                  }}
+                  className="px-6 py-2 bg-blue-600 text-white text-xs font-black uppercase hover:bg-blue-700 rounded shadow-sm flex items-center gap-2"
+                >
+                  <Edit3 size={16} /> Edit Invoice
+                </button>
+                <button 
+                  onClick={() => {
+                    setEditingInvoice(selectedInvoice);
+                    setShowInvoicePreview(false);
+                    openTab('VOUCHER_ENTRY_Return', `Return: ${selectedInvoice.invoiceNumber || selectedInvoice.invoice_number}`);
+                  }}
+                  className="px-6 py-2 bg-teal-600 text-white text-xs font-black uppercase hover:bg-teal-700 rounded shadow-sm flex items-center gap-2"
+                >
+                  <RefreshCcw size={16} /> Return Invoice
+                </button>
+                <button 
+                  onClick={() => handleDeleteInvoice(selectedInvoice.id)}
+                  className="px-6 py-2 bg-red-600 text-white text-xs font-black uppercase hover:bg-red-700 rounded shadow-sm flex items-center gap-2"
+                >
+                  <Trash2 size={16} /> Delete Invoice
+                </button>
+                <button 
                   onClick={handlePrint}
                   className="px-6 py-2 bg-white border border-slate-400 text-slate-700 text-xs font-black uppercase hover:bg-slate-50 rounded shadow-sm flex items-center gap-2"
                 >
@@ -1430,6 +1779,206 @@ const StrategicPOS: React.FC = () => {
                   <button onClick={() => setShowWorkflowGuide(false)} className="px-8 py-2 bg-[#1D3557] text-white text-xs font-black uppercase rounded shadow-lg hover:bg-blue-800 transition-all">Got it, Proceed</button>
               </div>
            </div>
+        </div>
+      )}
+      {showProductModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200">
+            <div className="bg-[#1D3557] p-5 text-white flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500/20 rounded-lg"><Package size={20} /></div>
+                <div>
+                  <h3 className="font-black text-base">{isEditingProduct ? 'Edit Product Master' : 'Add New Product SKU'}</h3>
+                  <p className="text-[10px] text-blue-200 font-bold tracking-widest uppercase">Inventory Ledger Definition</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowProductModal(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-6 bg-slate-50 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Product Name *</label>
+                  <input 
+                    type="text" 
+                    value={productForm.name || ''} 
+                    onChange={e => setProductForm({ ...productForm, name: e.target.value })}
+                    placeholder="e.g. Paracetamol 650mg"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Generic Formula *</label>
+                  <input 
+                    type="text" 
+                    value={productForm.genericName || ''} 
+                    onChange={e => setProductForm({ ...productForm, genericName: e.target.value })}
+                    placeholder="e.g. Paracetamol IP"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Manufacturer *</label>
+                  <input 
+                    type="text" 
+                    value={productForm.manufacturer || ''} 
+                    onChange={e => setProductForm({ ...productForm, manufacturer: e.target.value })}
+                    placeholder="e.g. Cipla Ltd"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Therapeutic Category</label>
+                  <select 
+                    value={productForm.therapeuticCategory || 'OTC'} 
+                    onChange={e => setProductForm({ ...productForm, therapeuticCategory: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  >
+                    <option value="OTC">OTC (Over the Counter)</option>
+                    <option value="Schedule H">Schedule H (Prescription)</option>
+                    <option value="Schedule H1">Schedule H1 (Controlled)</option>
+                    <option value="Analgesic">Analgesic (Pain Relief)</option>
+                    <option value="Antibiotic">Antibiotic</option>
+                    <option value="Cardiovascular">Cardiovascular</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Packing Description</label>
+                  <input 
+                    type="text" 
+                    value={productForm.packing || ''} 
+                    onChange={e => setProductForm({ ...productForm, packing: e.target.value })}
+                    placeholder="e.g. 10x15 Tablets"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Unit of Measure (UOM)</label>
+                  <select 
+                    value={productForm.uom || 'Strip'} 
+                    onChange={e => setProductForm({ ...productForm, uom: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  >
+                    <option value="Strip">Strip</option>
+                    <option value="Box">Box</option>
+                    <option value="Vial">Vial</option>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Ampoule">Ampoule</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">HSN Code</label>
+                  <input 
+                    type="text" 
+                    value={productForm.hsn || ''} 
+                    onChange={e => setProductForm({ ...productForm, hsn: e.target.value })}
+                    placeholder="e.g. 300490"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">GST Rate (%)</label>
+                  <select 
+                    value={productForm.gst || 12} 
+                    onChange={e => setProductForm({ ...productForm, gst: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  >
+                    <option value={0}>0% (Exempt)</option>
+                    <option value={5}>5%</option>
+                    <option value={12}>12% (Standard)</option>
+                    <option value={18}>18%</option>
+                    <option value={28}>28%</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Min Stock Level</label>
+                  <input 
+                    type="number" 
+                    value={productForm.minStockLevel || 0} 
+                    onChange={e => setProductForm({ ...productForm, minStockLevel: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-bold">Reorder Level</label>
+                  <input 
+                    type="number" 
+                    value={productForm.reorderLevel || 0} 
+                    onChange={e => setProductForm({ ...productForm, reorderLevel: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-slate-100 p-4 border-t border-slate-200 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowProductModal(false)}
+                className="px-6 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-black uppercase rounded shadow-sm hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveProduct}
+                disabled={!productForm.name || !productForm.genericName || !productForm.manufacturer}
+                className="px-8 py-2 bg-[#1D3557] text-white text-xs font-black uppercase rounded shadow-lg hover:bg-blue-800 disabled:opacity-50"
+              >
+                {isEditingProduct ? 'Update SKU' : 'Create SKU'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="bg-[#1D3557] p-4 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} className="text-amber-400" />
+                <h3 className="font-black text-sm uppercase tracking-wider">Are you sure?</h3>
+              </div>
+              <button 
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                className="text-white hover:text-slate-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 bg-slate-50 space-y-4">
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">{confirmDialog.message}</p>
+            </div>
+            <div className="bg-slate-100 p-4 border-t border-slate-200 flex justify-end gap-3">
+              <button 
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                className="px-5 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-black uppercase rounded shadow-sm hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog({ ...confirmDialog, isOpen: false });
+                }}
+                className="px-6 py-2 bg-red-600 text-white text-xs font-black uppercase rounded shadow-lg hover:bg-red-700 transition-all"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </EnterpriseLayout>

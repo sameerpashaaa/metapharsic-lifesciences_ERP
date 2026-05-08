@@ -13,7 +13,7 @@ async function run() {
     await client.connect();
     try {
         console.log('Adding company_id column to users table...');
-        await client.query(`
+        await client.query(`e inve
             ALTER TABLE users 
             ADD COLUMN IF NOT EXISTS company_id INTEGER DEFAULT 1;
         `);
