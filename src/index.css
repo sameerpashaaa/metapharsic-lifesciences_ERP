@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@config "./tailwind.config.js";
+@config "../tailwind.config.js";
 
 
 /* Additional CSS for animations and utilities */

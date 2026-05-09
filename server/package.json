@@ -6,7 +6,7 @@
     "type": "commonjs",
     "scripts": {
         "start": "node index.js",
-        "test": "node test-db.js"
+        "test": "echo \"No automated tests in server — run tests from project root with: npm test\""
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
