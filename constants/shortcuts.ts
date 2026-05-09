@@ -9,7 +9,7 @@ export interface ShortcutDefinition {
   description: string;
 }
 
-export const ERP_SHORTCUTS: Record<Tab, ShortcutDefinition> = {
+export const ERP_SHORTCUTS: Partial<Record<Tab, ShortcutDefinition>> = {
   [Tab.DASHBOARD]: {
     id: 'navigate-dashboard',
     key: 'd',
@@ -86,13 +86,6 @@ export const ERP_SHORTCUTS: Record<Tab, ShortcutDefinition> = {
     ctrl: true,
     alt: false,
     description: 'Go to Stock Summary'
-  },
-  [Tab.PCD]: {
-    id: 'navigate-pcd',
-    key: 'c',
-    ctrl: true,
-    alt: false,
-    description: 'Go to PCD'
   },
   [Tab.CRM]: {
     id: 'navigate-crm',
