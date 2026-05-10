@@ -180,6 +180,8 @@ CREATE TABLE IF NOT EXISTS chart_of_accounts (
 CREATE TABLE IF NOT EXISTS journal_vouchers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id INTEGER DEFAULT 1,
+    party_id UUID REFERENCES parties(id), -- Optional: Link to a specific party
+    voucher_type VARCHAR(50) DEFAULT 'Journal', -- Sales, Purchase, Receipt, Payment, Contra, Journal
     voucher_no VARCHAR(50) UNIQUE NOT NULL,
     voucher_date DATE NOT NULL,
     narration TEXT,
@@ -210,6 +212,7 @@ CREATE TABLE IF NOT EXISTS general_ledger (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     account_id UUID REFERENCES chart_of_accounts(id),
     voucher_id UUID REFERENCES journal_vouchers(id),
+    party_id UUID REFERENCES parties(id), -- Link to party for subsidiary ledger
     voucher_type VARCHAR(50), -- JV, Invoice, CN, DN, Contra, etc.
     transaction_date DATE NOT NULL,
     debit NUMERIC(15, 2) DEFAULT 0,
@@ -297,6 +300,47 @@ CREATE TABLE IF NOT EXISTS audit_log_accounting (
     user_id UUID REFERENCES users(id),
     ip_address VARCHAR(50),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Voucher Types Master
+CREATE TABLE IF NOT EXISTS voucher_types (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    alias VARCHAR(100),
+    type_of_voucher VARCHAR(50), -- Sales, Purchase, Receipt, Payment, Contra, Journal
+    abbreviation VARCHAR(20),
+    method_of_voucher_numbering VARCHAR(50) DEFAULT 'Automatic',
+    use_effective_dates BOOLEAN DEFAULT FALSE,
+    make_optional_by_default BOOLEAN DEFAULT FALSE,
+    allow_narration BOOLEAN DEFAULT TRUE,
+    provide_narrations_for_each_ledger BOOLEAN DEFAULT FALSE,
+    print_after_saving BOOLEAN DEFAULT FALSE,
+    name_of_class VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Stock Ledger Entries (Inventory Audit Trail)
+CREATE TABLE IF NOT EXISTS stock_ledger_entries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id INTEGER DEFAULT 1,
+    godown_id UUID,
+    product_id UUID REFERENCES products(id),
+    batch_id UUID REFERENCES batches(id),
+    movement_type VARCHAR(10) NOT NULL, -- IN, OUT
+    reference_type VARCHAR(50), -- Sale, Purchase, Return, Adjustment
+    reference_id UUID,
+    reference_number VARCHAR(50),
+    in_qty INTEGER DEFAULT 0,
+    out_qty INTEGER DEFAULT 0,
+    running_balance INTEGER,
+    cost_per_unit NUMERIC(15, 2),
+    total_cost NUMERIC(15, 2),
+    movement_date DATE NOT NULL,
+    narration TEXT,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Accounting Indexes

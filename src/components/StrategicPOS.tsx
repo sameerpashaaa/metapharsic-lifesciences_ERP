@@ -22,6 +22,8 @@ import { apiClient } from '../services/apiClient';
 import { calculateLineItem, calculateInvoiceSummary, calculateBatchValuation, validateDiscount, applyScheme, calculateRates } from '../utils/tallyERP11Calculations';
 import { EnterpriseLayout } from './UniversalLayout';
 import { printPOSInvoice, exportPOSInvoiceToExcel } from '../utils/accountingExport';
+import { numberToWords } from '../utils/numberToWords';
+import { formatCurrency, formatDate, formatNumber } from '../utils/formatters';
 
 interface POSDashboardInvoiceRow {
   id: string;
@@ -215,21 +217,37 @@ const StrategicPOS: React.FC = () => {
   });
 
   const loadPosDashboardSummary = async () => {
-    const response = await apiClient.get(`/pos/dashboard-summary?t=${Date.now()}`);
-    const summaryData = response?.success ? response.data : response;
-    setPosDashboardSummary({
-      tables: summaryData?.tables || ['sales_invoices', 'sales_invoice_items', 'parties'],
-      todayRevenue: Number(summaryData?.todayRevenue || 0),
-      yesterdayRevenue: Number(summaryData?.yesterdayRevenue || 0),
-      revenueChangePercent: Number(summaryData?.revenueChangePercent || 0),
-      invoicesGenerated: Number(summaryData?.invoicesGenerated || 0),
-      itemsSoldToday: Number(summaryData?.itemsSoldToday || 0),
-      pendingDrafts: Number(summaryData?.pendingDrafts || 0),
-      monthlyRevenue: Number(summaryData?.monthlyRevenue || 0),
-      recentInvoices: Array.isArray(summaryData?.recentInvoices) ? summaryData.recentInvoices : []
-    });
-  };
+  try {
+  const response = await apiClient.get(`/pos/dashboard-summary?t=${Date.now()}`);
+  const summaryData = response?.success ? response.data : response;
 
+  const mappedInvoices = Array.isArray(summaryData?.recentInvoices) 
+  ? summaryData.recentInvoices.map((inv: any) => ({
+  ...inv,
+  invoice_number: inv.invoice_number || inv.invoice_no || inv.id || 'N/A',
+  customer_name: inv.customer_name || inv.party_name || 'Counter Customer',
+  invoice_date: inv.date || inv.invoice_date || new Date().toISOString(),
+  amount: Number(inv.net_amount || inv.amount || 0),
+  status: inv.status || 'Completed',
+  items_sold: Number(inv.items_sold || 0)
+  })) 
+  : [];
+
+  setPosDashboardSummary({
+  tables: summaryData?.tables || ['sales_invoices', 'sales_invoice_items', 'parties'],
+  todayRevenue: Number(summaryData?.todayRevenue || 0),
+  yesterdayRevenue: Number(summaryData?.yesterdayRevenue || 0),
+  revenueChangePercent: Number(summaryData?.revenueChangePercent || 0),
+  invoicesGenerated: Number(summaryData?.invoicesGenerated || 0),
+  itemsSoldToday: Number(summaryData?.itemsSoldToday || 0),
+  pendingDrafts: Number(summaryData?.pendingDrafts || 0),
+  monthlyRevenue: Number(summaryData?.monthlyRevenue || 0),
+  recentInvoices: mappedInvoices
+  });
+  } catch (error) {
+  console.error('StrategicPOS: Failed to load dashboard summary', error);
+  }
+  };
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
@@ -691,7 +709,7 @@ const StrategicPOS: React.FC = () => {
         >
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Today's Revenue</p>
-            <h3 className="text-xl font-black text-[#1D3557]">Rs. {stats.totalToday.toLocaleString('en-IN')}</h3>
+            <h3 className="text-xl font-black text-[#1D3557]">{formatCurrency(stats.totalToday)}</h3>
             <p className={`mt-1 text-[10px] font-bold ${stats.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {stats.growth >= 0 ? 'Up' : 'Down'} {Math.abs(stats.growth)}% from yesterday
             </p>
@@ -729,7 +747,7 @@ const StrategicPOS: React.FC = () => {
         >
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly Revenue</p>
-            <h3 className="text-xl font-black text-emerald-600">Rs. {stats.totalMonth.toLocaleString('en-IN')}</h3>
+            <h3 className="text-xl font-black text-emerald-600">{formatCurrency(stats.totalMonth)}</h3>
             <p className="mt-1 text-[10px] font-bold text-emerald-600">This month from live billing</p>
           </div>
           <div className="rounded-lg bg-emerald-50 p-3 text-emerald-600"><TrendingUp size={20} /></div>
@@ -773,7 +791,7 @@ const StrategicPOS: React.FC = () => {
                         year: 'numeric'
                       })}
                     </td>
-                    <td className="p-4 text-right text-xs font-black">Rs. {inv.amount.toLocaleString('en-IN')}</td>
+                    <td className="p-4 text-right text-xs font-black">{formatCurrency(inv.amount)}</td>
                     <td className="p-4 text-center">
                       <span className={`rounded px-2 py-0.5 text-[9px] font-black uppercase ${inv.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {inv.status}
@@ -1486,15 +1504,11 @@ const StrategicPOS: React.FC = () => {
                   <td className="p-4 font-mono text-xs font-bold text-blue-700 group-hover:underline">{inv.invoiceNumber}</td>
                   <td className="p-4 text-xs font-bold text-slate-700">{inv.customerName}</td>
                   <td className="p-4 text-xs text-slate-500">
-                    {new Date(inv.date).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
+                    {formatDate(inv.date)}
                   </td>
-                  <td className="p-4 text-xs font-bold text-right">₹{(inv.taxableValue || 0).toLocaleString()}</td>
-                  <td className="p-4 text-xs font-bold text-right">₹{(inv.totalGst || 0).toLocaleString()}</td>
-                  <td className="p-4 text-xs font-black text-right">₹{(inv.netAmount || 0).toLocaleString()}</td>
+                  <td className="p-4 text-xs font-bold text-right">{formatCurrency(inv.taxableValue)}</td>
+                  <td className="p-4 text-xs font-bold text-right">{formatCurrency(inv.totalGst)}</td>
+                  <td className="p-4 text-xs font-black text-right">{formatCurrency(inv.netAmount)}</td>
                   <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-center gap-1.5">
                       <button 
@@ -1605,7 +1619,7 @@ const StrategicPOS: React.FC = () => {
                         <span className="text-[10px] font-black text-slate-400 uppercase">Inv No:</span>
                         <span className="text-xs font-black text-blue-700">{selectedInvoice.invoiceNumber}</span>
                         <span className="text-[10px] font-black text-slate-400 uppercase">Date:</span>
-                        <span className="text-xs font-black text-slate-800">{new Date(selectedInvoice.date).toLocaleDateString()}</span>
+                        <span className="text-xs font-black text-slate-800">{formatDate(selectedInvoice.date)}</span>
                         <span className="text-[10px] font-black text-slate-400 uppercase">Status:</span>
                         <span className="text-[10px] font-black text-emerald-600 uppercase">{selectedInvoice.status}</span>
                       </div>
@@ -1654,10 +1668,10 @@ const StrategicPOS: React.FC = () => {
                             {item.quantity}
                           </td>
                           <td className="p-3 text-right text-xs font-bold border-l border-slate-100">
-                            ₹{(item.selling_rate || item.rate || 0).toLocaleString()}
+                            {formatCurrency(item.selling_rate || item.rate)}
                           </td>
                           <td className="p-3 text-right text-xs font-black border-l border-slate-100 text-[#1D3557]">
-                            ₹{(item.total_amount || item.totalAmount || 0).toLocaleString()}
+                            {formatCurrency(item.total_amount || item.totalAmount)}
                           </td>
                         </tr>
                       ))}
@@ -1670,16 +1684,16 @@ const StrategicPOS: React.FC = () => {
                   <div className="w-80 space-y-3">
                     <div className="flex justify-between items-center text-xs text-slate-600 font-bold">
                       <span>Gross Amount</span>
-                      <span>₹{(selectedInvoice.taxableValue || selectedInvoice.items?.reduce((s: number, i: any) => s + (i.total_amount || i.totalAmount || 0), 0) || 0).toLocaleString()}</span>
+                      <span>{formatCurrency(selectedInvoice.taxableValue || selectedInvoice.items?.reduce((s: number, i: any) => s + (i.total_amount || i.totalAmount || 0), 0))}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs text-slate-600 font-bold">
                       <span>Total Tax (GST)</span>
-                      <span className="text-blue-600">+ ₹{(selectedInvoice.totalGst || (selectedInvoice.netAmount - (selectedInvoice.taxableValue || 0)) || 0).toLocaleString()}</span>
+                      <span className="text-blue-600">+ {formatCurrency(selectedInvoice.totalGst || (selectedInvoice.netAmount - (selectedInvoice.taxableValue || 0)))}</span>
                     </div>
                     <div className="h-px bg-slate-100 my-2"></div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-black text-[#1D3557] uppercase tracking-widest">Net Payable</span>
-                      <span className="text-xl font-black text-[#1D3557]">₹{(selectedInvoice.netAmount || 0).toLocaleString()}</span>
+                      <span className="text-xl font-black text-[#1D3557]">{formatCurrency(selectedInvoice.netAmount)}</span>
                     </div>
                     <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 mt-4">
                       <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 italic">Amount in words</p>

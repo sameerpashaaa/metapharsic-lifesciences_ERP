@@ -121,6 +121,30 @@ export const saveInvoice = async (invoice: SalesInvoice): Promise<boolean> => {
       invoices.push(invoice);
     }
     
+    // Ensure robust offline stock synchronization
+    if (invoice.items && Array.isArray(invoice.items)) {
+      invoice.items.forEach(item => {
+        const targetProduct = products.find(p => p.id === item.productId || p.name === item.productName);
+        if (targetProduct) {
+          const deductQty = Number(item.quantity) || 0;
+          // 1. Deduct global total stock count
+          targetProduct.totalStock = Math.max(0, (targetProduct.totalStock || 0) - deductQty);
+          
+          // 2. Deduct specific batch stock count
+          if (item.batchId && targetProduct.batches) {
+            const batch = targetProduct.batches.find(b => b.id === item.batchId || b.batchNumber === item.batchNumber);
+            if (batch) {
+              batch.stock = Math.max(0, (batch.stock || 0) - deductQty);
+              // Add type consistency for both naming formats
+              if ((batch as any).quantity !== undefined) {
+                (batch as any).quantity = Math.max(0, ((batch as any).quantity || 0) - deductQty);
+              }
+            }
+          }
+        }
+      });
+    }
+    
     saveToStorage();
     
     // Try to save to backend API using apiClient
@@ -174,7 +198,7 @@ export const getAllInvoices = async (): Promise<SalesInvoice[]> => {
 
 export const getInvoiceById = async (id: string): Promise<SalesInvoice | null> => {
   try {
-    const response = await apiClient.get(`/api/pos/invoices/${id}`);
+    const response = await apiClient.get(`/pos/invoices/${id}`);
     if (response.success) {
       const inv = response.data;
       return {

@@ -138,6 +138,14 @@ app.post('/api/auth/refresh-token', async (req, res) => {
     await authController.refreshToken(req, res);
 });
 
+app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
+    await authController.forgotPassword(req, res);
+});
+
+app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
+    await authController.resetPassword(req, res);
+});
+
 // ============================================
 // PROTECTED ROUTES (Require JWT)
 // ============================================
@@ -181,6 +189,7 @@ const omsRoutes = require('./routes/oms');
 const complianceRoutes = require('./routes/compliance');
 const dmsRoutes = require('./routes/dms');
 const inventoryEnterpriseRoutes = require('./routes/inventory-enterprise');
+const voucherRoutes = require('./routes/vouchers');
 
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/inventory-full', inventoryRoutesFull);
@@ -206,6 +215,7 @@ app.use('/api/oms', omsRoutes);
 app.use('/api/compliance', complianceRoutes);
 app.use('/api/dms', dmsRoutes);
 app.use('/api/inventory-enterprise', inventoryEnterpriseRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 // Helper to wrap async routes
 const asyncRoute = (fn) => (req, res, next) => {

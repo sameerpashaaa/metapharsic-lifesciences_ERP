@@ -11,7 +11,7 @@ const asyncRoute = (fn) => (req, res, next) => {
 
 router.get('/', verifyTokenMiddleware, verify2FAMiddleware, asyncRoute(async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT * FROM products ORDER BY name');
+        const { rows } = await db.query('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY name');
         
         const products = await Promise.all(rows.map(async (p) => {
             const { rows: batches } = await db.query(
@@ -82,7 +82,7 @@ router.post('/', verifyTokenMiddleware, verifyRoleMiddleware(['ADMIN', 'PHARMACI
 router.delete('/:id', verifyTokenMiddleware, verifyRoleMiddleware(['ADMIN', 'PHARMACIST']), verify2FAMiddleware, asyncRoute(async (req, res) => {
     try {
         const { id } = req.params;
-        await db.query('DELETE FROM products WHERE id = $1', [id]);
+        await db.query('UPDATE products SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [id]);
         res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
         logger.error('Failed to delete product', { error: error.message });

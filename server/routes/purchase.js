@@ -628,14 +628,21 @@ router.post('/:id/receive', async (req, res) => {
         [item.received_qty, item.item_id]
       );
 
-      // Add to/Update batches
-      // Using a more robust INSERT/UPDATE
+      // Fetch product default rates for Not-Null enforcement if missing from payload
+      const { rows: prodRows } = await client.query('SELECT mrp, selling_rate FROM products WHERE id = $1', [item.product_id]);
+      const productDefaults = prodRows[0] || { mrp: 0, selling_rate: 0 };
+      
+      const batchMrp = item.mrp || productDefaults.mrp || 0;
+      const batchSellingRate = item.selling_rate || productDefaults.selling_rate || 0;
+
+      // Add to/Update batches using canonical column names (stock instead of quantity)
       const { rows: batchRows } = await client.query(
-        `INSERT INTO batches (id, product_id, batch_number, quantity, expiry_date, purchase_rate, created_by, company_id)
+        `INSERT INTO batches (id, product_id, batch_number, expiry_date, purchase_rate, stock, mrp, selling_rate)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (product_id, batch_number) DO UPDATE SET quantity = batches.quantity + EXCLUDED.quantity
+         ON CONFLICT (product_id, batch_number) 
+         DO UPDATE SET stock = batches.stock + EXCLUDED.stock
          RETURNING id, godown_id`,
-        [uuidv4(), item.product_id, item.batch_no, item.received_qty, item.expiry_date, item.cost, userId, companyId]
+        [uuidv4(), item.product_id, item.batch_no, item.expiry_date, item.cost, item.received_qty, batchMrp, batchSellingRate]
       );
       
       const batchId = batchRows[0].id;

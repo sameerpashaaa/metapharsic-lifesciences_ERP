@@ -13,6 +13,7 @@ const { v4: uuidv4 } = require('uuid');
  */
 async function postToGeneralLedger(client, {
     accountId,      // UUID of the account
+    partyId = null, // Optional: UUID of the party
     voucherId,      // UUID of source document
     voucherType,    // 'Sales', 'Purchase', 'JV', 'Payment', etc.
     transactionDate,// Date of transaction
@@ -34,14 +35,22 @@ async function postToGeneralLedger(client, {
         // 2. Insert GL Entry
         await client.query(
             `INSERT INTO general_ledger (
-                id, account_id, voucher_id, voucher_type, transaction_date, 
+                id, account_id, party_id, voucher_id, voucher_type, transaction_date, 
                 debit, credit, running_balance, is_reconciled, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, clock_timestamp())`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, clock_timestamp())`,
             [
-                uuidv4(), accountId, voucherId, voucherType, transactionDate, 
+                uuidv4(), accountId, partyId, voucherId, voucherType, transactionDate, 
                 debit, credit, runningBalance
             ]
         );
+
+        // 3. Update Party Balance if applicable
+        if (partyId) {
+            await client.query(
+                `UPDATE parties SET current_balance = current_balance + ($1 - $2) WHERE id = $3`,
+                [debit, credit, partyId]
+            );
+        }
         
         return true;
     } catch (error) {
@@ -100,6 +109,20 @@ async function postToStockLedger(client, {
             ]
         );
 
+        // 3. Update batches table
+        if (batchId) {
+            const updateQuery = movementType === 'IN' 
+                ? 'UPDATE batches SET stock = stock + $1 WHERE id = $2'
+                : 'UPDATE batches SET stock = stock - $1 WHERE id = $2 AND stock >= $1';
+            
+            const batchRes = await client.query(updateQuery, [quantity, batchId]);
+            
+            // Ensure atomicity: fail fast if subtracting more than available stock
+            if (movementType === 'OUT' && batchRes.rowCount === 0) {
+                throw new Error(`Insufficient stock in batch ${batchId} for required quantity of ${quantity}`);
+            }
+        }
+
         return true;
     } catch (error) {
         console.error('❌ Stock Ledger Error:', error);
@@ -112,6 +135,16 @@ async function postToStockLedger(client, {
  * Useful for finding "Sales Account", "Purchase Account", etc.
  */
 async function findAccount(client, companyId, search) {
+    // 1. Try exact name match
+    const exactMatch = await client.query(
+        `SELECT id FROM chart_of_accounts 
+         WHERE company_id = $1 AND account_name = $2
+         LIMIT 1`,
+        [companyId, search]
+    );
+    if (exactMatch.rows.length > 0) return exactMatch.rows[0].id;
+
+    // 2. Try ILIKE match
     const { rows } = await client.query(
         `SELECT id FROM chart_of_accounts 
          WHERE company_id = $1 AND (account_name ILIKE $2 OR account_code = $3)
@@ -121,8 +154,107 @@ async function findAccount(client, companyId, search) {
     return rows[0]?.id || null;
 }
 
+/**
+ * Unified helper to process standard business vouchers (Receipt, Payment, Contra, Return)
+ */
+async function processVoucher(client, {
+    companyId,
+    voucherType,    // 'Receipt', 'Payment', 'Contra', 'Sales Return', 'Purchase Return'
+    voucherNo,
+    voucherDate,
+    partyId = null,
+    drAccountId,
+    crAccountId,
+    amount,
+    narration = '',
+    createdBy
+}) {
+    try {
+        // 1. Create the Master Voucher record
+        const { rows: voucherRows } = await client.query(
+            `INSERT INTO journal_vouchers (
+                id, company_id, party_id, voucher_type, voucher_no, voucher_date, 
+                narration, total_debit, total_credit, status, created_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Posted', $10) RETURNING id`,
+            [uuidv4(), companyId, partyId, voucherType, voucherNo, voucherDate, narration, amount, amount, createdBy]
+        );
+        const voucherId = voucherRows[0].id;
+
+        // 2. Post Debit Entry
+        await postToGeneralLedger(client, {
+            accountId: drAccountId,
+            partyId: (voucherType === 'Payment' || voucherType === 'Purchase' || voucherType === 'Sales Return') ? partyId : null,
+            voucherId,
+            voucherType,
+            transactionDate: voucherDate,
+            debit: amount,
+            credit: 0,
+            narration
+        });
+
+        // 3. Post Credit Entry
+        await postToGeneralLedger(client, {
+            accountId: crAccountId,
+            partyId: (voucherType === 'Receipt' || voucherType === 'Sales' || voucherType === 'Purchase Return') ? partyId : null,
+            voucherId,
+            voucherType,
+            transactionDate: voucherDate,
+            debit: 0,
+            credit: amount,
+            narration
+        });
+
+        return voucherId;
+    } catch (error) {
+        console.error('❌ processVoucher Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Clear GL and Stock Ledger entries for a given voucher
+ * Also handles party balance reversal for GL entries
+ */
+async function clearLedgerEntries(client, voucherId, voucherType, options = {}) {
+    try {
+        // Use specific IDs for stock clearing if provided, otherwise fall back to main voucher IDs
+        const stockRefId = options.stockRefId || voucherId;
+        const stockRefType = options.stockRefType || voucherType;
+
+        // 1. Revert Party Balances before deleting GL entries
+        const { rows: glEntries } = await client.query(
+            'SELECT party_id, debit, credit FROM general_ledger WHERE voucher_id = $1 AND voucher_type = $2 AND party_id IS NOT NULL',
+            [voucherId, voucherType]
+        );
+
+        for (const entry of glEntries) {
+            await client.query(
+                'UPDATE parties SET current_balance = current_balance - ($1 - $2) WHERE id = $3',
+                [entry.debit, entry.credit, entry.party_id]
+            );
+        }
+
+        // 2. Delete GL entries
+        await client.query(
+            'DELETE FROM general_ledger WHERE voucher_id = $1 AND voucher_type = $2',
+            [voucherId, voucherType]
+        );
+
+        // 3. Delete Stock Ledger entries using exact cross-mapped identifiers
+        await client.query(
+            'DELETE FROM stock_ledger_entries WHERE reference_id = $1 AND reference_type = $2',
+            [stockRefId, stockRefType]
+        );
+    } catch (error) {
+        console.error('❌ clearLedgerEntries Error:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     postToGeneralLedger,
     postToStockLedger,
-    findAccount
+    findAccount,
+    processVoucher,
+    clearLedgerEntries
 };

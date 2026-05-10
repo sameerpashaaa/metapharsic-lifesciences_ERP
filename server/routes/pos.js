@@ -1,92 +1,46 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { v4: uuidv4 } = require('uuid');
 const { verifyTokenMiddleware, verifyRoleMiddleware } = require('../utils/jwt');
 const logger = require('../utils/logger');
-console.log('✅ POS Routes module loaded and initializing...');
+const ledgerHelper = require('../utils/ledgerHelper');
 
 // Middleware
 router.use(verifyTokenMiddleware);
-router.use(verifyRoleMiddleware(['ADMIN', 'PHARMACIST', 'POS_OPERATOR']));
+router.use(verifyRoleMiddleware(['ADMIN', 'PHARMACIST', 'SALES_MANAGER']));
+
+/**
+ * GET /api/pos/parties
+ * Fetch customers/debtors for POS billing
+ */
+router.get('/parties', async (req, res) => {
+    try {
+        const { rows } = await db.query(
+            "SELECT id, name, mobile, current_balance FROM parties WHERE type = 'Debtor' AND status = 'Active' ORDER BY name"
+        );
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 /**
  * GET /api/pos/invoices
- * Fetch all sales invoices with pagination and filters
+ * List all invoices
  */
 router.get('/invoices', async (req, res) => {
-  try {
-    const { search = '', status = 'All', page = 1, limit = 20, dateFrom = '', dateTo = '' } = req.query;
-    const offset = (page - 1) * limit;
-
-    let query = `
-      SELECT si.*, p.name as party_name,
-             COUNT(sii.id) as item_count,
-             SUM(sii.quantity * sii.rate) as total_amount
-      FROM sales_invoices si
-      LEFT JOIN parties p ON si.party_id = p.id
-      LEFT JOIN sales_invoice_items sii ON si.id = sii.invoice_id
-      WHERE 1=1
-    `;
-    const params = [];
-
-    if (search) {
-      query += ` AND (si.invoice_number ILIKE $${params.length + 1} 
-                  OR p.name ILIKE $${params.length + 1})`;
-      params.push(`%${search}%`);
+    try {
+        const { rows } = await db.query(
+            `SELECT si.*, u.name as created_by_name 
+             FROM sales_invoices si 
+             LEFT JOIN users u ON si.created_by = u.id 
+             ORDER BY si.date DESC, si.created_at DESC`
+        );
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
-
-    if (status !== 'All') {
-      query += ` AND si.status = $${params.length + 1}`;
-      params.push(status);
-    }
-
-    if (dateFrom) {
-      query += ` AND si.invoice_date >= $${params.length + 1}`;
-      params.push(dateFrom);
-    }
-
-    if (dateTo) {
-      query += ` AND si.invoice_date <= $${params.length + 1}`;
-      params.push(dateTo);
-    }
-
-    query += ` GROUP BY si.id, p.name
-              ORDER BY si.created_at DESC
-              LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
-
-    const { rows } = await db.query(query, params);
-
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as count FROM sales_invoices WHERE 1=1';
-    const countParams = [];
-    if (search) {
-      countQuery += ` AND (invoice_number ILIKE $${countParams.length + 1})`;
-      countParams.push(`%${search}%`);
-    }
-    if (status !== 'All') {
-      countQuery += ` AND status = $${countParams.length + 1}`;
-      countParams.push(status);
-    }
-
-    const { rows: countRows } = await db.query(countQuery, countParams);
-
-    res.json({
-      success: true,
-      data: rows,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: parseInt(countRows[0].count),
-        pages: Math.ceil(parseInt(countRows[0].count) / limit)
-      }
-    });
-
-    logger.http('GET', '/api/pos/invoices', 200, rows.length, req.ip, req.user.userId);
-  } catch (error) {
-    logger.error('Failed to fetch invoices', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch invoices' });
-  }
 });
 
 /**
@@ -94,850 +48,453 @@ router.get('/invoices', async (req, res) => {
  * Fetch single invoice with items
  */
 router.get('/invoices/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+    try {
+        const { rows: [invoice] } = await db.query(
+            `SELECT si.*, u.name as created_by_name 
+             FROM sales_invoices si 
+             LEFT JOIN users u ON si.created_by = u.id 
+             WHERE si.id = $1`,
+            [req.params.id]
+        );
 
-    const { rows: invoice } = await db.query(
-      `SELECT si.*, p.* FROM sales_invoices si
-       LEFT JOIN parties p ON si.party_id = p.id
-       WHERE si.id = $1`,
-      [id]
-    );
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
 
-    if (!invoice.length) {
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
+        const { rows: items } = await db.query(
+            `SELECT sii.*, p.name as product_name, p.generic_name, b.batch_number 
+             FROM sales_invoice_items sii
+             LEFT JOIN products p ON sii.product_id = p.id
+             LEFT JOIN batches b ON sii.batch_id = b.id
+             WHERE sii.invoice_id = $1`,
+            [req.params.id]
+        );
+
+        invoice.items = items;
+        res.json({ success: true, data: invoice });
+    } catch (error) {
+        logger.error('POS Invoice Details Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
     }
-
-    const { rows: items } = await db.query(
-      `SELECT sii.*, pr.name as product_name, pr.code as product_code
-       FROM sales_invoice_items sii
-       LEFT JOIN products pr ON sii.product_id = pr.id
-       WHERE sii.invoice_id = $1`,
-      [id]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        ...invoice[0],
-        items
-      }
-    });
-
-    logger.http('GET', `/api/pos/invoices/${id}`, 200, 1, req.ip, req.user.userId);
-  } catch (error) {
-    logger.error(`Failed to fetch invoice ${id}`, { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch invoice' });
-  }
-});
-
-/**
- * GET /api/pos/products
- * Fetch products for POS (active only)
- */
-router.get('/products', async (req, res) => {
-  try {
-    const { search = '', page = 1, limit = 50 } = req.query;
-    const offset = (page - 1) * limit;
-
-    let query = `
-      SELECT p.*, COUNT(b.id) as batch_count,
-             SUM(b.quantity) as current_stock
-      FROM products p
-      LEFT JOIN batches b ON p.id = b.product_id
-      WHERE p.is_active = true
-    `;
-    const params = [];
-
-    if (search) {
-      query += ` AND (p.name ILIKE $${params.length + 1} 
-                  OR p.code ILIKE $${params.length + 1}
-                  OR p.generic_name ILIKE $${params.length + 1})`;
-      params.push(`%${search}%`);
-    }
-
-    query += ` GROUP BY p.id
-              ORDER BY p.name
-              LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
-
-    const { rows } = await db.query(query, params);
-
-    // Get batches for each product
-    const products = await Promise.all(rows.map(async (p) => {
-      const { rows: batches } = await db.query(
-        `SELECT *,
-                batch_no as batch_number,
-                batch_no as "batchNumber",
-                expiry_date as "expiryDate",
-                purchase_rate as "purchaseRate",
-                selling_rate as "sellingRate"
-         FROM batches 
-         WHERE product_id = $1 AND quantity > 0 AND expiry_date > NOW()
-         ORDER BY expiry_date ASC`,
-        [p.id]
-      );
-      return { ...p, batches };
-    }));
-
-    res.json({
-      success: true,
-      data: products,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit)
-      }
-    });
-
-    logger.http('GET', '/api/pos/products', 200, products.length, req.ip, req.user.userId);
-  } catch (error) {
-    logger.error('Failed to fetch POS products', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch products' });
-  }
-});
-
-/**
- * GET /api/pos/parties
- * Fetch all parties/customers
- */
-router.get('/parties', async (req, res) => {
-  try {
-    const { search = '' } = req.query;
-
-    let query = "SELECT id, name, gstin, mobile, type, current_balance as \"currentBalance\", status, address, email, city FROM parties WHERE status = 'Active'";
-    const params = [];
-
-    if (search) {
-      query += ` AND (name ILIKE $${params.length + 1} OR gstin ILIKE $${params.length + 1})`;
-      params.push(`%${search}%`);
-    }
-
-    query += ' ORDER BY name LIMIT 100';
-
-    const { rows } = await db.query(query, params);
-
-    res.json({
-      success: true,
-      data: rows
-    });
-  } catch (error) {
-    logger.error('Failed to fetch parties', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch parties' });
-  }
 });
 
 /**
  * POST /api/pos/invoices
- * Create new sales invoice
+ * Create a new Sales Invoice with Transactional Integrity
  */
 router.post('/invoices', async (req, res) => {
-  try {
-    const {
-      invoice_no,
-      invoice_date,
-      invoice_type = 'Retail',
-      party_id,
-      payment_mode = 'Cash',
-      party_name,
-      party_code,
-      items = [],
-      total_taxable = 0,
-      total_cgst = 0,
-      total_sgst = 0,
-      total_igst = 0,
-      round_off = 0,
-      freight_charges = 0,
-      net_payable = 0
-    } = req.body;
+    const client = await db.pool.connect();
+    try {
+        // Hardened parameter extraction protecting against varying property naming conventions
+        const invoice_number = req.body.invoice_number || req.body.invoice_no;
+        const date = req.body.date || req.body.invoice_date || new Date();
+        const customer_name = req.body.customer_name || req.body.party_name || req.body.patient_name || 'Counter Customer';
+        const customer_mobile = req.body.customer_mobile || '';
+        const doctor_name = req.body.doctor_name || '';
+        const payment_mode = req.body.payment_mode || 'Cash';
+        const sub_total = Number(req.body.sub_total || req.body.net_payable || req.body.net_amount || 0);
+        const taxable_value = Number(req.body.taxable_value || req.body.total_taxable || sub_total);
+        const total_gst = Number(req.body.total_gst || (sub_total - taxable_value) || 0);
+        const total_discount = Number(req.body.total_discount || 0);
+        const round_off = Number(req.body.round_off || 0);
+        const net_amount = Number(req.body.net_amount || req.body.net_payable || sub_total);
+        const items = req.body.items || [];
+        const party_id = req.body.party_id || null;
 
-    if (!invoice_no || !invoice_date || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invoice number, date, and at least one item are required'
-      });
-    }
+        if (!items || items.length === 0) {
+            return res.status(400).json({ success: false, error: 'No items provided' });
+        }
 
-    // Create party if not exists (for walk-in customers)
-    let finalPartyId = party_id;
-    if (!finalPartyId && party_name) {
-      const { rows: partyResult } = await db.query(
-        `INSERT INTO parties (name, mobile, type, status)
-         VALUES ($1, $2, 'Customer', 'Active')
-         RETURNING id`,
-        [party_name, '']
-      );
-      finalPartyId = partyResult[0].id;
-    }
+        await client.query('BEGIN');
 
-    // Insert invoice
-    const { rows: invoiceResult } = await db.query(
-      `INSERT INTO sales_invoices 
-       (invoice_number, date, time, invoice_date, party_id, payment_mode, customer_name,
-        taxable_value, sub_total, total_gst, round_off, 
-        net_payable, net_amount, status, created_by)
-       VALUES ($1, $2, CURRENT_TIME, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Completed', $12)
-       RETURNING id, invoice_number, created_at`,
-      [invoice_no, invoice_date, finalPartyId, payment_mode, party_name,
-       total_taxable, total_taxable, (total_cgst + total_sgst + total_igst), round_off,
-       net_payable, net_payable, req.user?.userId || null]
-    );
+        const companyId = req.user?.companyId || 1;
+        const userId = req.user?.userId || req.user?.id;
 
-    const invoiceId = invoiceResult[0].id;
-
-    // Insert line items
-    for (const item of items) {
-      await db.query(
-        `INSERT INTO sales_invoice_items 
-         (invoice_id, product_id, batch_id, quantity, rate, 
-          discount_amount, taxable_value, cgst_amount, sgst_amount, igst_amount, mrp, total_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $11, $7, $8, $9, $10, $11)`,
-        [invoiceId, item.product_id === 'manual' ? null : item.product_id, item.batch_id || null, item.quantity, item.selling_rate,
-         item.discount || 0, item.cgst_rate || 0, item.sgst_rate || 0, item.igst_rate || 0, item.mrp, item.totalAmount || (item.quantity * item.selling_rate)]
-      );
-
-      // Update batch quantity
-      if (item.batch_id) {
-        await db.query(
-          `UPDATE batches SET quantity = quantity - $1 WHERE id = $2`,
-          [item.quantity, item.batch_id]
+        // 1. Create Invoice Header
+        const invoiceResult = await client.query(
+            `INSERT INTO sales_invoices (
+                invoice_number, date, customer_name, customer_mobile, doctor_name, 
+                payment_mode, sub_total, taxable_value, total_gst, total_discount, 
+                round_off, net_amount, status, created_by, party_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING id`,
+            [
+                invoice_number, date, customer_name, customer_mobile, doctor_name,
+                payment_mode, sub_total, taxable_value, total_gst, total_discount,
+                round_off, net_amount, 'Completed', userId, party_id
+            ]
         );
-      }
-    }
+        const invoiceId = invoiceResult.rows[0].id;
 
-    res.status(201).json({
-      success: true,
-      data: invoiceResult[0],
-      message: 'Invoice created successfully'
-    });
-
-    logger.http('POST', '/api/pos/invoices', 201, items.length, req.ip, req.user.userId);
-  } catch (error) {
-    logger.error('Failed to create invoice', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to create invoice' });
-  }
-});
-
-/**
- * PUT /api/pos/invoices/:id
- * Update an existing sales invoice and reconcile stock quantities
- */
-router.put('/invoices/:id', async (req, res) => {
-  const client = await db.pool.connect();
-  try {
-    const { id } = req.params;
-    const {
-      invoice_no,
-      invoice_date,
-      payment_mode = 'Cash',
-      party_id,
-      party_name,
-      items = [],
-      total_taxable = 0,
-      total_cgst = 0,
-      total_sgst = 0,
-      total_igst = 0,
-      round_off = 0,
-      net_payable = 0
-    } = req.body;
-
-    if (!invoice_no || !invoice_date || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invoice number, date, and at least one item are required'
-      });
-    }
-
-    await client.query('BEGIN');
-
-    // 1. Fetch previous items to restore batch stock quantities
-    const { rows: oldItems } = await client.query(
-      `SELECT * FROM sales_invoice_items WHERE invoice_id = $1`,
-      [id]
-    );
-
-    for (const oldItem of oldItems) {
-      if (oldItem.batch_id) {
+        // 2. Create Journal Voucher record for Sales
+        const voucherId = uuidv4();
         await client.query(
-          `UPDATE batches SET quantity = quantity + $1 WHERE id = $2`,
-          [oldItem.quantity, oldItem.batch_id]
+            `INSERT INTO journal_vouchers (
+                id, company_id, party_id, voucher_type, voucher_no, voucher_date, 
+                narration, total_debit, total_credit, status, created_by
+            ) VALUES ($1, $2, $3, 'Sales', $4, $5, $6, $7, $8, 'Posted', $9)`,
+            [voucherId, companyId, party_id, invoice_number, date, `Sales Invoice ${invoice_number}`, net_amount, net_amount, userId]
         );
-      }
+
+        // 3. Process Items & Stock Ledger
+        for (const item of items) {
+            // Apply defensive property extraction to shield from property-casing mismatches
+            const itemRate = Number(item.rate || item.selling_rate || 0);
+            const itemTaxable = Number(item.taxable_value || item.amount || item.total_amount || (item.quantity * itemRate) || 0);
+            const itemTotal = Number(item.total_amount || item.totalAmount || (item.quantity * itemRate) || 0);
+            const itemGst = Number(item.gst_percent || item.gstPercent || 0);
+            const dbProductId = (item.product_id && item.product_id !== 'manual' && item.product_id !== 'undefined') ? item.product_id : null;
+            const dbBatchId = (item.batch_id && item.batch_id !== 'undefined') ? item.batch_id : null;
+
+            await client.query(
+                `INSERT INTO sales_invoice_items (
+                    invoice_id, product_id, batch_id, quantity, mrp, rate, 
+                    discount_percent, discount_amount, taxable_value, gst_percent, total_amount
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [
+                    invoiceId, 
+                    dbProductId, 
+                    dbBatchId, 
+                    Number(item.quantity || 0), 
+                    Number(item.mrp || itemRate), 
+                    itemRate,
+                    Number(item.discount_percent || 0), 
+                    Number(item.discount_amount || item.discount || 0), 
+                    itemTaxable, 
+                    itemGst, 
+                    itemTotal
+                ]
+            );
+
+            // Post to Stock Ledger IF verified product is present
+            if (dbProductId) {
+                await ledgerHelper.postToStockLedger(client, {
+                    companyId,
+                    productId: dbProductId,
+                    batchId: dbBatchId,
+                    movementType: 'OUT',
+                    referenceType: 'Sale',
+                    referenceId: invoiceId,
+                    referenceNumber: invoice_number,
+                    quantity: Number(item.quantity || 0),
+                    movementDate: date,
+                    narration: `POS Sale: ${invoice_number}`,
+                    createdBy: userId
+                });
+            }
+        }
+
+        // 4. General Ledger Postings
+        const salesAcct = await ledgerHelper.findAccount(client, companyId, 'Sales');
+        const taxAcct = await ledgerHelper.findAccount(client, companyId, 'GST Payable');
+        let debitAcct;
+        
+        if (payment_mode === 'Cash') debitAcct = await ledgerHelper.findAccount(client, companyId, 'Cash in Hand');
+        else if (payment_mode === 'Credit') debitAcct = await ledgerHelper.findAccount(client, companyId, 'Sundry Debtors');
+        else debitAcct = await ledgerHelper.findAccount(client, companyId, 'Bank Accounts');
+
+        // A. Debit Party/Cash/Bank
+        await ledgerHelper.postToGeneralLedger(client, {
+            accountId: debitAcct,
+            partyId: payment_mode === 'Credit' ? party_id : null,
+            voucherId: voucherId,
+            voucherType: 'Sales',
+            transactionDate: date,
+            debit: net_amount,
+            credit: 0,
+            narration: `Invoice ${invoice_number}`
+        });
+
+        // B. Credit Sales
+        await ledgerHelper.postToGeneralLedger(client, {
+            accountId: salesAcct,
+            voucherId: voucherId,
+            voucherType: 'Sales',
+            transactionDate: date,
+            debit: 0,
+            credit: taxable_value,
+            narration: `Taxable Sales: ${invoice_number}`
+        });
+
+        // C. Credit GST
+        if (total_gst > 0) {
+            await ledgerHelper.postToGeneralLedger(client, {
+                accountId: taxAcct,
+                voucherId: voucherId,
+                voucherType: 'Sales',
+                transactionDate: date,
+                debit: 0,
+                credit: total_gst,
+                narration: `GST on Sales: ${invoice_number}`
+            });
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, invoiceId, invoice_number });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error('POS Invoice Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    } finally {
+        client.release();
     }
-
-    // 2. Delete old items
-    await client.query(
-      `DELETE FROM sales_invoice_items WHERE invoice_id = $1`,
-      [id]
-    );
-
-    // Create party if not exists (for walk-in customers)
-    let finalPartyId = party_id;
-    if (!finalPartyId && party_name) {
-      const { rows: partyResult } = await client.query(
-        `INSERT INTO parties (name, mobile, type, status)
-         VALUES ($1, $2, 'Customer', 'Active')
-         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-         RETURNING id`,
-        [party_name, '']
-      );
-      if (partyResult.length) {
-        finalPartyId = partyResult[0].id;
-      }
-    }
-
-    // 3. Update invoice header
-    const { rows: invoiceResult } = await client.query(
-      `UPDATE sales_invoices 
-       SET invoice_number = $1, date = $2, invoice_date = $2, party_id = $3, payment_mode = $4, customer_name = $5,
-           taxable_value = $6, sub_total = $6, total_gst = $7, round_off = $8, 
-           net_payable = $9, net_amount = $9, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
-       RETURNING id, invoice_number`,
-      [invoice_no, invoice_date, finalPartyId, payment_mode, party_name,
-       total_taxable, (total_cgst + total_sgst + total_igst), round_off,
-       net_payable, id]
-    );
-
-    if (invoiceResult.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
-    }
-
-    // 4. Insert new items and deduct stock quantities
-    for (const item of items) {
-      await client.query(
-        `INSERT INTO sales_invoice_items 
-         (invoice_id, product_id, batch_id, quantity, rate, 
-          discount_amount, taxable_value, cgst_amount, sgst_amount, igst_amount, mrp, total_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $11, $7, $8, $9, $10, $11)`,
-        [id, item.product_id === 'manual' ? null : item.product_id, item.batch_id || null, item.quantity, item.selling_rate || item.rate,
-         item.discount || 0, item.totalAmount || (item.quantity * (item.selling_rate || item.rate)), item.cgst_rate || 0, item.sgst_rate || 0, item.igst_rate || 0, item.mrp || item.selling_rate || item.rate, item.totalAmount || (item.quantity * (item.selling_rate || item.rate))]
-      );
-
-      if (item.batch_id) {
-        await client.query(
-          `UPDATE batches SET quantity = quantity - $1 WHERE id = $2`,
-          [item.quantity, item.batch_id]
-        );
-      }
-    }
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: 'Invoice updated successfully',
-      data: invoiceResult[0]
-    });
-
-    logger.http('PUT', `/api/pos/invoices/${id}`, 200, items.length, req.ip, req.user?.userId || null);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    logger.error('Failed to update invoice', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to update invoice' });
-  } finally {
-    client.release();
-  }
-});
-
-/**
- * DELETE /api/pos/invoices/:id
- * Delete a sales invoice and restore batch stock quantities
- */
-router.delete('/invoices/:id', async (req, res) => {
-  const client = await db.pool.connect();
-  try {
-    const { id } = req.params;
-
-    await client.query('BEGIN');
-
-    // 1. Fetch previous items to restore batch stock quantities
-    const { rows: items } = await client.query(
-      `SELECT * FROM sales_invoice_items WHERE invoice_id = $1`,
-      [id]
-    );
-
-    for (const item of items) {
-      if (item.batch_id) {
-        await client.query(
-          `UPDATE batches SET quantity = quantity + $1 WHERE id = $2`,
-          [item.quantity, item.batch_id]
-        );
-      }
-    }
-
-    // 2. Delete invoice items
-    await client.query(
-      `DELETE FROM sales_invoice_items WHERE invoice_id = $1`,
-      [id]
-    );
-
-    // 3. Delete invoice header
-    const { rowCount } = await client.query(
-      `DELETE FROM sales_invoices WHERE id = $1`,
-      [id]
-    );
-
-    if (rowCount === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
-    }
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: 'Invoice deleted successfully'
-    });
-
-    logger.http('DELETE', `/api/pos/invoices/${id}`, 200, items.length, req.ip, req.user?.userId || null);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    logger.error('Failed to delete invoice', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to delete invoice' });
-  } finally {
-    client.release();
-  }
-});
-
-
-
-
-
-
-
-
-/**
- * GET /api/pos/parties/:id
- * Fetch a single party by ID
- */
-router.get('/parties/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { rows } = await db.query(
-      'SELECT id, name, mobile, gstin, city, email, address, status FROM parties WHERE id = $1',
-      [id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Party not found' });
-    }
-
-    res.json({
-      success: true,
-      data: rows[0]
-    });
-  } catch (error) {
-    logger.error('Failed to fetch party', { error: error.message, id: req.params.id });
-    res.status(500).json({ success: false, error: 'Failed to fetch party' });
-  }
-});
-
-/**
- * POST /api/pos/parties
- * Create a new party
- */
-router.post('/parties', async (req, res) => {
-  try {
-    const { name, code, mobile, gstin, city, email, address } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'Party name is required' });
-    }
-
-    const { rows } = await db.query(
-      `INSERT INTO parties (name, mobile, gstin, city, email, address, type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'Customer', 'Active')
-       RETURNING id, name, mobile, gstin, city, email, address, status`,
-      [name, mobile, gstin, city, email, address]
-    );
-
-    res.status(201).json({
-      success: true,
-      data: rows[0]
-    });
-  } catch (error) {
-    logger.error('Failed to create party', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to create party' });
-  }
-});
-
-/**
- * PUT /api/pos/parties/:id
- * Update an existing party
- */
-router.put('/parties/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, mobile, gstin, city, email, address, status, type, current_balance } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'Party name is required' });
-    }
-
-    const { rows } = await db.query(
-      `UPDATE parties 
-       SET name = $1, mobile = $2, gstin = $3, city = $4, email = $5, address = $6, status = $7, type = $8, current_balance = $9
-       WHERE id = $10 
-       RETURNING *`,
-      [name, mobile, gstin, city, email, address, status || 'Active', type || 'Debtor', current_balance || 0, id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Party not found' });
-    }
-
-    res.json({
-      success: true,
-      data: rows[0]
-    });
-  } catch (error) {
-    logger.error('Failed to update party', { error: error.message, id: req.params.id });
-    res.status(500).json({ success: false, error: 'Failed to update party' });
-  }
-});
-
-/**
- * GET /api/pos/dropdown
- * Fetch dropdown data for POS
- */
-router.get('/lists/dropdown', async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: {
-        invoiceTypes: ['Retail', 'Wholesale', 'Tax Invoice', 'Bill of Supply', 'Debit Note', 'Credit Note'],
-        paymentModes: ['Cash', 'UPI', 'Card', 'Credit', 'Multi'],
-        creditTerms: ['Immediate', '7 Days', '15 Days', '30 Days', '45 Days', '60 Days', '90 Days'],
-        deliveryModes: ['Counter', 'Delivery', 'Courier', 'Chilling']
-      }
-    });
-  } catch (error) {
-    logger.error('Failed to fetch dropdown lists', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch data' });
-  }
-});
-
-/**
- * GET /api/pos/voucher-types
- * Fetch all voucher types
- */
-router.get('/voucher-types', async (req, res) => {
-  try {
-    const { rows } = await db.query('SELECT * FROM voucher_types ORDER BY name');
-    res.json({ success: true, data: rows });
-  } catch (error) {
-    logger.error('Failed to fetch voucher types', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch voucher types' });
-  }
-});
-
-/**
- * POST /api/pos/voucher-types
- * Create or update a voucher type
- */
-router.post('/voucher-types', async (req, res) => {
-  try {
-    const {
-      id, name, alias, typeOfVoucher, abbreviation, methodOfVoucherNumbering,
-      useEffectiveDates, makeOptionalByDefault, allowNarration,
-      provideNarrationsForEachLedger, printAfterSaving, nameOfClass
-    } = req.body;
-
-    let result;
-    if (id && !id.startsWith('VT-')) {
-      // It's a real UUID from database
-      result = await db.query(
-        `UPDATE voucher_types SET 
-          name = $1, alias = $2, type_of_voucher = $3, abbreviation = $4, 
-          method_of_voucher_numbering = $5, use_effective_dates = $6,
-          make_optional_by_default = $7, allow_narration = $8,
-          provide_narrations_for_each_ledger = $9, print_after_saving = $10,
-          name_of_class = $11, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $12 RETURNING *`,
-        [name, alias, typeOfVoucher, abbreviation, methodOfVoucherNumbering,
-         useEffectiveDates, makeOptionalByDefault, allowNarration,
-         provideNarrationsForEachLedger, printAfterSaving, nameOfClass, id]
-      );
-    } else {
-      // It's a new record
-      result = await db.query(
-        `INSERT INTO voucher_types 
-         (name, alias, type_of_voucher, abbreviation, method_of_voucher_numbering,
-          use_effective_dates, make_optional_by_default, allow_narration,
-          provide_narrations_for_each_ledger, print_after_saving, name_of_class)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-        [name, alias, typeOfVoucher, abbreviation, methodOfVoucherNumbering,
-         useEffectiveDates, makeOptionalByDefault, allowNarration,
-         provideNarrationsForEachLedger, printAfterSaving, nameOfClass]
-      );
-    }
-
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    logger.error('Failed to save voucher type', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to save voucher type' });
-  }
-});
-
-/**
- * GET /api/pos/terminal/summary
- * Fetch summary stats for POS terminal and Intelligence Dashboard
- */
-router.get('/terminal/summary', async (req, res) => {
-  try {
-    // Get total revenue for last 30 days
-    const { rows: monthlyRows } = await db.query(`
-      SELECT COALESCE(SUM(net_payable), 0) as total 
-      FROM sales_invoices 
-      WHERE invoice_date >= NOW() - INTERVAL '30 days'
-      AND status = 'Completed'
-    `);
-
-    // Get total revenue for previous 30 days (for growth)
-    const { rows: prevRows } = await db.query(`
-      SELECT COALESCE(SUM(net_payable), 0) as total 
-      FROM sales_invoices 
-      WHERE invoice_date >= NOW() - INTERVAL '60 days' 
-      AND invoice_date < NOW() - INTERVAL '30 days'
-      AND status = 'Completed'
-    `);
-
-    const currentTotal = parseFloat(monthlyRows[0].total);
-    const prevTotal = parseFloat(prevRows[0].total);
-    let growth = 0;
-    if (prevTotal > 0) {
-      growth = ((currentTotal - prevTotal) / prevTotal) * 100;
-    }
-
-    // Get stats by payment mode
-    const { rows: paymentStats } = await db.query(`
-      SELECT payment_mode, COALESCE(SUM(net_payable), 0) as total, COUNT(*) as count
-      FROM sales_invoices
-      WHERE invoice_date >= NOW() - INTERVAL '30 days'
-      AND status = 'Completed'
-      GROUP BY payment_mode
-    `);
-
-    res.json({
-      success: true,
-      data: {
-        monthlyRevenue: currentTotal,
-        growth: Math.round(growth),
-        paymentStats: paymentStats,
-        transactionCount: paymentStats.reduce((s, p) => s + parseInt(p.count), 0),
-        totalMonth: currentTotal // For stats section in StrategicPOS
-      }
-    });
-
-    logger.http('GET', '/api/pos/terminal/summary', 200, 1, req.ip, req.user.userId);
-  } catch (error) {
-    logger.error('Failed to fetch terminal summary', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch terminal summary' });
-  }
-});
-
-/**
- * GET /api/pos/dashboard-summary
- * Fetch POS dashboard KPIs and recent invoices directly from the database
- */
-router.get('/dashboard-summary', async (req, res) => {
-  try {
-    const { rows: summaryRows } = await db.query(`
-      WITH max_date_cte AS (
-        SELECT COALESCE(MAX(COALESCE(invoice_date, date, created_at)::date), CURRENT_DATE) as max_date FROM sales_invoices
-      ),
-      normalized_invoices AS (
-        SELECT
-          si.id,
-          COALESCE(si.invoice_date, si.date, si.created_at) AS invoice_ts,
-          COALESCE(si.net_payable, si.net_amount, 0)::numeric AS net_total,
-          COALESCE(si.status, 'Completed') AS status
-        FROM sales_invoices si
-      ),
-      invoice_items AS (
-        SELECT
-          COALESCE(sii.invoice_id, sii.invoice_id) AS invoice_id,
-          COALESCE(SUM(sii.quantity), 0)::numeric AS item_quantity
-        FROM sales_invoice_items sii
-        GROUP BY COALESCE(sii.invoice_id, sii.invoice_id)
-      )
-      SELECT
-        COALESCE(SUM(ni.net_total) FILTER (
-          WHERE ni.status = 'Completed'
-            AND ni.invoice_ts::date = (SELECT max_date FROM max_date_cte)
-        ), 0) AS today_revenue,
-        COUNT(*) FILTER (
-          WHERE ni.status = 'Completed'
-            AND ni.invoice_ts::date = (SELECT max_date FROM max_date_cte)
-        )::int AS invoices_generated,
-        COALESCE(SUM(ii.item_quantity) FILTER (
-          WHERE ni.status = 'Completed'
-            AND ni.invoice_ts::date = (SELECT max_date FROM max_date_cte)
-        ), 0)::int AS items_sold_today,
-        COUNT(*) FILTER (
-          WHERE ni.status IN ('Draft', 'Pending')
-        )::int AS pending_drafts,
-        COALESCE(SUM(ni.net_total) FILTER (
-          WHERE ni.status = 'Completed'
-            AND ni.invoice_ts >= date_trunc('month', (SELECT max_date FROM max_date_cte))
-            AND ni.invoice_ts < date_trunc('month', (SELECT max_date FROM max_date_cte)) + INTERVAL '1 month'
-        ), 0) AS monthly_revenue,
-        COALESCE(SUM(ni.net_total) FILTER (
-          WHERE ni.status = 'Completed'
-            AND ni.invoice_ts::date = (SELECT max_date FROM max_date_cte) - INTERVAL '1 day'
-        ), 0) AS yesterday_revenue
-      FROM normalized_invoices ni
-      LEFT JOIN invoice_items ii ON ii.invoice_id = ni.id
-    `);
-
-    const { rows: recentInvoiceRows } = await db.query(`
-      WITH invoice_item_counts AS (
-        SELECT
-          COALESCE(sii.invoice_id, sii.invoice_id) AS invoice_id,
-          COALESCE(SUM(sii.quantity), 0)::int AS items_sold
-        FROM sales_invoice_items sii
-        GROUP BY COALESCE(sii.invoice_id, sii.invoice_id)
-      )
-      SELECT
-        si.id,
-        COALESCE(si.invoice_number, si.invoice_number, si.id::text) AS invoice_number,
-        COALESCE(p.name, si.customer_name, 'Counter Customer') AS customer_name,
-        COALESCE(si.invoice_date, si.date, si.created_at) AS invoice_date,
-        COALESCE(si.net_payable, si.net_amount, 0)::numeric AS amount,
-        COALESCE(si.status, 'Completed') AS status,
-        COALESCE(iic.items_sold, 0) AS items_sold
-      FROM sales_invoices si
-      LEFT JOIN parties p ON p.id = si.party_id
-      LEFT JOIN invoice_item_counts iic ON iic.invoice_id = si.id
-      ORDER BY COALESCE(si.invoice_date, si.date, si.created_at) DESC, si.created_at DESC NULLS LAST
-      LIMIT 10
-    `);
-
-    const summary = summaryRows[0] || {};
-    const todayRevenue = parseFloat(summary.today_revenue || 0);
-    const yesterdayRevenue = parseFloat(summary.yesterday_revenue || 0);
-    const revenueDelta = todayRevenue - yesterdayRevenue;
-    const revenueChangePercent = yesterdayRevenue > 0
-      ? Math.round((revenueDelta / yesterdayRevenue) * 100)
-      : (todayRevenue > 0 ? 100 : 0);
-
-    res.json({
-      success: true,
-      data: {
-        tables: ['sales_invoices', 'sales_invoice_items', 'parties'],
-        todayRevenue,
-        yesterdayRevenue,
-        revenueChangePercent,
-        invoicesGenerated: parseInt(summary.invoices_generated || 0, 10),
-        itemsSoldToday: parseInt(summary.items_sold_today || 0, 10),
-        pendingDrafts: parseInt(summary.pending_drafts || 0, 10),
-        monthlyRevenue: parseFloat(summary.monthly_revenue || 0),
-        recentInvoices: recentInvoiceRows.map((invoice) => ({
-          ...invoice,
-          amount: parseFloat(invoice.amount || 0)
-        }))
-      }
-    });
-
-    logger.http('GET', '/api/pos/dashboard-summary', 200, recentInvoiceRows.length, req.ip, req.user.userId);
-  } catch (error) {
-    logger.error('Failed to fetch POS dashboard summary', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to fetch POS dashboard summary' });
-  }
 });
 
 /**
  * POST /api/pos/returns
- * Create a new Sales Return (Credit Note) and increase inventory batch quantities
+ * Create a Sales Return with Stock Reversal
  */
 router.post('/returns', async (req, res) => {
-  try {
-    const {
-      invoice_no,
-      invoice_date,
-      party_id,
-      party_name,
-      items = [],
-      net_payable = 0
-    } = req.body;
+    const client = await db.pool.connect();
+    try {
+        const {
+            invoice_no, // Return memo number
+            invoice_date,
+            party_name,
+            items,
+            net_payable,
+            total_taxable,
+            party_id
+        } = req.body;
 
-    if (!invoice_no || !invoice_date || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Return voucher number, date, and items are required'
-      });
-    }
+        await client.query('BEGIN');
+        const companyId = req.user?.companyId || 1;
+        const userId = req.user?.userId || req.user?.id;
 
-    // Create party if not exists (for walk-in customers)
-    let finalPartyId = party_id;
-    if (!finalPartyId && party_name) {
-      try {
-        const { rows: partyResult } = await db.query(
-          `INSERT INTO parties (name, mobile, type, status)
-           VALUES ($1, $2, 'Customer', 'Active')
-           RETURNING id`,
-          [party_name, '']
+        const voucherId = uuidv4();
+        // 1. Create Return Voucher Header
+        await client.query(
+            `INSERT INTO journal_vouchers (
+                id, company_id, party_id, voucher_type, voucher_no, voucher_date, 
+                narration, total_debit, total_credit, status, created_by
+            ) VALUES ($1, $2, $3, 'Sales Return', $4, $5, $6, $7, $8, 'Posted', $9)`,
+            [voucherId, companyId, party_id, invoice_no, invoice_date, `Sales Return: ${invoice_no}`, net_payable, net_payable, userId]
         );
-        finalPartyId = partyResult[0].id;
-      } catch (err) {
-        // If already exists, try to fetch it
-        const { rows: partySearch } = await db.query(
-          `SELECT id FROM parties WHERE name = $1 LIMIT 1`,
-          [party_name]
-        );
-        if (partySearch.length > 0) {
-          finalPartyId = partySearch[0].id;
+
+        // 2. Process Items & Revert Stock
+        for (const item of items) {
+            await client.query("UPDATE batches SET stock = stock + $1 WHERE id = $2", [item.quantity, item.batch_id]);
+            
+            await ledgerHelper.postToStockLedger(client, {
+                companyId,
+                productId: item.product_id,
+                batchId: item.batch_id,
+                movementType: 'IN',
+                referenceType: 'Return',
+                referenceId: voucherId,
+                referenceNumber: invoice_no,
+                quantity: item.quantity,
+                movementDate: invoice_date,
+                narration: `Sales Return: ${invoice_no}`,
+                createdBy: userId
+            });
         }
-      }
+
+        // 3. Accounting Entries
+        const salesReturnAcct = await ledgerHelper.findAccount(client, companyId, 'Sales Returns') || await ledgerHelper.findAccount(client, companyId, 'Sales');
+        const taxAcct = await ledgerHelper.findAccount(client, companyId, 'GST Payable');
+        const partyAcct = await ledgerHelper.findAccount(client, companyId, 'Sundry Debtors');
+
+        // A. Debit Sales Return
+        await ledgerHelper.postToGeneralLedger(client, {
+            accountId: salesReturnAcct,
+            voucherId: voucherId,
+            voucherType: 'Sales Return',
+            transactionDate: invoice_date,
+            debit: total_taxable,
+            credit: 0,
+            narration: `Return taxable: ${invoice_no}`
+        });
+
+        // B. Debit GST
+        const totalGst = net_payable - total_taxable;
+        if (totalGst > 0) {
+            await ledgerHelper.postToGeneralLedger(client, {
+                accountId: taxAcct,
+                voucherId: voucherId,
+                voucherType: 'Sales Return',
+                transactionDate: invoice_date,
+                debit: totalGst,
+                credit: 0,
+                narration: `Return GST: ${invoice_no}`
+            });
+        }
+
+        // C. Credit Party
+        await ledgerHelper.postToGeneralLedger(client, {
+            accountId: partyAcct,
+            partyId: party_id,
+            voucherId: voucherId,
+            voucherType: 'Sales Return',
+            transactionDate: invoice_date,
+            debit: 0,
+            credit: net_payable,
+            narration: `Return to Party: ${invoice_no}`
+        });
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Return processed successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, error: error.message });
+    } finally {
+        client.release();
     }
+});
 
-    // Insert sales return invoice with status 'Returned'
-    const { rows: invoiceResult } = await db.query(
-      `INSERT INTO sales_invoices 
-       (invoice_number, date, time, invoice_date, party_id, payment_mode, customer_name,
-        taxable_value, sub_total, total_gst, round_off, 
-        net_payable, net_amount, status, created_by)
-       VALUES ($1, $2, CURRENT_TIME, $2, $3, 'Cash', $4, $5, $5, 0, 0, $6, $6, 'Returned', $7)
-       RETURNING id, invoice_number`,
-      [invoice_no, invoice_date, finalPartyId, party_name, net_payable, req.user?.userId || null]
-    );
+/**
+ * DELETE /api/pos/invoices/:id
+ */
+router.delete('/invoices/:id', async (req, res) => {
+    const client = await db.pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Get Invoice Details
+        const { rows: [invoice] } = await client.query("SELECT * FROM sales_invoices WHERE id = $1", [req.params.id]);
+        if (!invoice) throw new Error('Invoice not found');
 
-    const invoiceId = invoiceResult[0].id;
+        // 2. Find linked Journal Voucher
+        const { rows: [jv] } = await client.query("SELECT id FROM journal_vouchers WHERE voucher_no = $1 AND voucher_type = 'Sales'", [invoice.invoice_number]);
+        
+        // 3. Revert Stock
+        const { rows: items } = await client.query("SELECT * FROM sales_invoice_items WHERE invoice_id = $1", [req.params.id]);
+        for (const item of items) {
+            await client.query("UPDATE batches SET stock = stock + $1 WHERE id = $2", [item.quantity, item.batch_id]);
+        }
 
-    // Insert line items and increment batch quantities
-    for (const item of items) {
-      await db.query(
-        `INSERT INTO sales_invoice_items 
-         (invoice_id, product_id, batch_id, quantity, rate, 
-          discount_amount, taxable_value, cgst_amount, sgst_amount, igst_amount, mrp, total_amount)
-         VALUES ($1, $2, $3, $4, $5, 0, $6, 0, 0, 0, $7, $6)`,
-        [invoiceId, item.product_id === 'manual' ? null : item.product_id, item.batch_id || null, item.quantity, item.selling_rate || item.rate,
-         item.totalAmount || (item.quantity * (item.selling_rate || item.rate)), item.mrp || item.rate]
-      );
+        // 4. Clear Ledger Entries using helper
+        // Pass stock lookup parameters explicitly to guarantee clean deletion of stock records
+        await ledgerHelper.clearLedgerEntries(client, jv ? jv.id : null, 'Sales', { 
+            stockRefId: req.params.id, 
+            stockRefType: 'Sale' 
+        });
 
-      // Increment batch quantity (Sales Return adds items back to stock)
-      if (item.batch_id) {
-        await db.query(
-          `UPDATE batches SET quantity = quantity + $1 WHERE id = $2`,
-          [item.quantity, item.batch_id]
-        );
-      }
+        if (jv) {
+            await client.query("DELETE FROM journal_vouchers WHERE id = $1", [jv.id]);
+        }
+
+        // 5. Delete Invoice
+        await client.query("DELETE FROM sales_invoices WHERE id = $1", [req.params.id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Invoice and accounting entries deleted' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, error: error.message });
+    } finally {
+        client.release();
     }
+});
 
-    res.json({
-      success: true,
-      data: {
-        id: invoiceId,
-        invoice_number: invoice_no
-      }
-    });
+/**
+ * GET /api/pos/dashboard-summary
+ */
+router.get('/dashboard-summary', async (req, res) => {
+    try {
+        const todayResult = await db.query("SELECT COALESCE(SUM(net_amount), 0) as revenue, COUNT(*) as count FROM sales_invoices WHERE date::date = CURRENT_DATE");
+        const yesterdayResult = await db.query("SELECT COALESCE(SUM(net_amount), 0) as revenue FROM sales_invoices WHERE date::date = CURRENT_DATE - INTERVAL '1 day'");
+        const monthlyResult = await db.query("SELECT COALESCE(SUM(net_amount), 0) as revenue FROM sales_invoices WHERE date >= date_trunc('month', CURRENT_DATE)");
+        const itemsResult = await db.query(`
+            SELECT COALESCE(SUM(quantity), 0) as items 
+            FROM sales_invoice_items sii 
+            JOIN sales_invoices si ON sii.invoice_id = si.id 
+            WHERE si.date::date = CURRENT_DATE
+        `);
+        const recentResult = await db.query(`
+            SELECT si.*, u.name as created_by_name 
+            FROM sales_invoices si 
+            LEFT JOIN users u ON si.created_by = u.id 
+            ORDER BY si.created_at DESC LIMIT 10
+        `);
 
-    logger.http('POST', '/api/pos/returns', 200, items.length, req.ip, req.user?.userId);
-  } catch (error) {
-    logger.error('Failed to create sales return', { error: error.message });
-    res.status(500).json({ success: false, error: 'Failed to create sales return' });
-  }
+        const todayRevenue = parseFloat(todayResult.rows[0]?.revenue || 0);
+        const yesterdayRevenue = parseFloat(yesterdayResult.rows[0]?.revenue || 0);
+        const changePercent = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : 0;
+
+        res.json({
+            success: true,
+            data: {
+                todayRevenue,
+                yesterdayRevenue,
+                revenueChangePercent: changePercent,
+                invoicesGenerated: parseInt(todayResult.rows[0]?.count || 0),
+                itemsSoldToday: parseInt(itemsResult.rows[0]?.items || 0),
+                pendingDrafts: 0,
+                monthlyRevenue: parseFloat(monthlyResult.rows[0]?.revenue || 0),
+                recentInvoices: recentResult.rows,
+                tables: ['sales_invoices', 'sales_invoice_items', 'parties']
+            }
+        });
+    } catch (error) {
+        logger.error('POS Dashboard Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/pos/voucher-types
+ */
+router.get('/voucher-types', async (req, res) => {
+    try {
+        const { rows } = await db.query("SELECT * FROM voucher_types ORDER BY name");
+        if (rows.length === 0) {
+            return res.json({
+                success: true,
+                data: [
+                    { name: 'Sales', type_of_voucher: 'Sales', abbreviation: 'Sales' },
+                    { name: 'Payment', type_of_voucher: 'Payment', abbreviation: 'Pymt' },
+                    { name: 'Receipt', type_of_voucher: 'Receipt', abbreviation: 'Rcpt' },
+                    { name: 'Contra', type_of_voucher: 'Contra', abbreviation: 'Cont' },
+                    { name: 'Journal', type_of_voucher: 'Journal', abbreviation: 'Jv' }
+                ]
+            });
+        }
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        logger.error('POS VoucherTypes Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/pos/products
+ * Fetches all active products with nested available stock batches for integration
+ */
+router.get('/products', async (req, res) => {
+    try {
+        const { rows: products } = await db.query('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY name');
+        const fullProducts = await Promise.all(products.map(async (p) => {
+            const { rows: batches } = await db.query(
+                'SELECT * FROM batches WHERE product_id = $1 AND stock > 0 ORDER BY expiry_date ASC',
+                [p.id]
+            );
+            return {
+                id: p.id,
+                name: p.name,
+                genericName: p.generic_name,
+                packing: p.packing,
+                uom: p.uom,
+                hsn: p.hsn,
+                gst: parseFloat(p.gst || 12),
+                scheduleType: p.schedule_type,
+                totalStock: parseInt(p.current_stock || 0),
+                batches: batches.map(b => ({
+                    id: b.id,
+                    batchNumber: b.batch_number || b.batch_no,
+                    expiryDate: b.expiry_date,
+                    stock: parseInt(b.stock || b.available_qty || 0),
+                    mrp: parseFloat(b.mrp || 0),
+                    purchaseRate: parseFloat(b.purchase_rate || 0),
+                    sellingRate: parseFloat(b.selling_rate || 0)
+                }))
+            };
+        }));
+        res.json({ success: true, data: fullProducts });
+    } catch (error) {
+        logger.error('POS Products Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 module.exports = router;

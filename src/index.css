@@ -1,6 +1,21 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+:root {
+  --color-primary: #111111;
+  --color-secondary: #888888;
+  --color-accent: #4CAF72;
+  --color-background: #F5F5F5;
+  --color-text: #111111;
+  
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+}
 
 /* Additional CSS for animations and utilities */
 @keyframes fadeIn {
@@ -29,32 +44,31 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f5f5f5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+  background: #E0E0E0;
   border-radius: 4px;
-  border: 2px solid #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #888888;
 }
 
-/* Glassmorphism effects */
+/* Flat panel overrides (replacing obsolete glass effects) */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: #FFFFFF;
+  border: 0.5px solid #E0E0E0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .glass-dark {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #111111;
+  border: 0.5px solid #333333;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Floating animation */

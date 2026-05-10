@@ -423,6 +423,39 @@ router.put('/:id', verifyRoleMiddleware(['ADMIN', 'PHARMACIST', 'INVENTORY_MANAG
 });
 
 /**
+ * DELETE /api/inventory/:id
+ * Soft delete a product from Item/Stock Master while preserving historical records
+ */
+router.delete('/:id', verifyRoleMiddleware(['ADMIN', 'PHARMACIST', 'INVENTORY_MANAGER']), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      `UPDATE products
+       SET deleted_at = NOW(), is_active = false, updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id, name`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Product not found or already deleted' });
+    }
+
+    logger.http('DELETE', `/api/inventory/${id}`, 200, 0, req.ip, req.user.userId);
+
+    return res.json({
+      success: true,
+      data: result.rows[0],
+      message: 'Product deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Failed to delete product', { error: error.message, userId: req.user.userId });
+    return res.status(500).json({ success: false, error: error.message || 'Failed to delete product' });
+  }
+});
+
+/**
  * POST /api/inventory/batch
  * Add a new batch to a product
  */

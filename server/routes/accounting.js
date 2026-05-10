@@ -374,6 +374,11 @@ router.post('/journal-vouchers/:id/post', verifyTokenMiddleware, verifyRoleMiddl
             ['Posted', req.user.userId, req.params.id]
         );
 
+        const { rows: [voucher] } = await client.query(
+            'SELECT voucher_date FROM journal_vouchers WHERE id = $1',
+            [req.params.id]
+        );
+
         const { rows: entries } = await client.query(
             'SELECT * FROM journal_voucher_entries WHERE voucher_id = $1',
             [req.params.id]
@@ -389,7 +394,7 @@ router.post('/journal-vouchers/:id/post', verifyTokenMiddleware, verifyRoleMiddl
             await client.query(
                 `INSERT INTO general_ledger (account_id, voucher_id, voucher_type, transaction_date, debit, credit, running_balance, is_reconciled, created_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW())`,
-                [entry.account_id, req.params.id, 'JV', rows[0].voucher_date, entry.debit, entry.credit, newBalance]
+                [entry.account_id, req.params.id, 'JV', voucher.voucher_date, entry.debit, entry.credit, newBalance]
             );
         }
 
@@ -757,7 +762,7 @@ router.get('/daybook', verifyTokenMiddleware, verify2FAMiddleware, asyncRoute(as
             SELECT
                 TO_CHAR(v.voucher_date, 'YYYY-MM-DD') as "date",
                 COALESCE(v.narration, 'Journal Voucher') as particulars,
-                COALESCE(v.voucher_type, 'Journal') as "vchType",
+                'Journal' as "vchType",
                 v.voucher_no as "vchNo",
                 v.total_debit::numeric as debit,
                 v.total_credit::numeric as credit,
@@ -770,17 +775,16 @@ router.get('/daybook', verifyTokenMiddleware, verify2FAMiddleware, asyncRoute(as
             UNION ALL
 
             SELECT
-                TO_CHAR(COALESCE(i.invoice_date, i.date), 'YYYY-MM-DD') as "date",
+                TO_CHAR(i.date, 'YYYY-MM-DD') as "date",
                 COALESCE(i.customer_name, 'Cash Sales') as particulars,
                 'Sales' as "vchType",
-                COALESCE(i.invoice_no, i.invoice_number) as "vchNo",
-                COALESCE(i.net_payable, i.net_amount)::numeric as debit,
+                i.invoice_number as "vchNo",
+                i.net_amount::numeric as debit,
                 0::numeric as credit,
                 'sales_invoices' as "sourceTable"
             FROM sales_invoices i
-            WHERE (i.company_id = $1 OR i.company_id IS NULL)
-              AND TO_CHAR(COALESCE(i.invoice_date, i.date), 'YYYY-MM-DD') >= $2
-              AND TO_CHAR(COALESCE(i.invoice_date, i.date), 'YYYY-MM-DD') <= $3
+            WHERE TO_CHAR(i.date, 'YYYY-MM-DD') >= $2
+              AND TO_CHAR(i.date, 'YYYY-MM-DD') <= $3
 
             UNION ALL
 

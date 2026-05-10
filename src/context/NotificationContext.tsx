@@ -317,11 +317,11 @@ export const NotificationBell: React.FC = () => {
     <div className="relative" ref={bellRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-xl hover:bg-white/10 text-blue-200 transition-all hover:text-white"
+        className="relative p-2.5 rounded-xl hover:bg-white/10 text-blue-200 transition-all hover:text-white"
       >
-        <Bell size={18} />
+        <Bell size={22} />
         {unreadCount > 0 && (
-          <span className={`absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full border-2 border-[#1D3557] shadow-sm flex items-center justify-center text-xs font-bold ${
+          <span className={`absolute -top-1 -right-1 min-w-[24px] h-6 px-1.5 rounded-full border-2 border-slate-50 shadow-sm flex items-center justify-center text-[10px] font-black ${
             unreadCount > 20 ? 'bg-red-600 text-white animate-pulse' : 'bg-red-500 text-white'
           }`}>
             {unreadCount > 99 ? '99+' : unreadCount}

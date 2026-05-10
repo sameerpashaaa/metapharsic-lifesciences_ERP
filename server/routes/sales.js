@@ -28,17 +28,16 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
 
     let query = `
-      SELECT si.*, p.name as party_name,
+      SELECT si.*, si.customer_name as party_name,
              (SELECT COUNT(*) FROM sales_invoice_items WHERE invoice_id = si.id) as item_count
       FROM sales_invoices si
-      LEFT JOIN parties p ON si.party_id = p.id
-      WHERE si.invoice_type = 'Wholesale'
+      WHERE 1=1
     `;
     const params = [];
 
     if (search) {
-      query += ` AND (si.invoice_no ILIKE $${params.length + 1} 
-                  OR p.name ILIKE $${params.length + 1})`;
+      query += ` AND (si.invoice_number ILIKE $${params.length + 1} 
+                  OR si.customer_name ILIKE $${params.length + 1})`;
       params.push(`%${search}%`);
     }
 
@@ -48,12 +47,12 @@ router.get('/', async (req, res) => {
     }
 
     if (dateFrom) {
-      query += ` AND si.invoice_date >= $${params.length + 1}`;
+      query += ` AND si.date >= $${params.length + 1}`;
       params.push(dateFrom);
     }
 
     if (dateTo) {
-      query += ` AND si.invoice_date <= $${params.length + 1}`;
+      query += ` AND si.date <= $${params.length + 1}`;
       params.push(dateTo);
     }
 
@@ -64,10 +63,10 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(query, params);
 
     // Get total count
-    let countQuery = "SELECT COUNT(*) as count FROM sales_invoices WHERE invoice_type = 'Wholesale'";
+    let countQuery = "SELECT COUNT(*) as count FROM sales_invoices WHERE 1=1";
     const countParams = [];
     if (search) {
-      countQuery += ` AND (invoice_no ILIKE $${countParams.length + 1} OR (SELECT name FROM parties WHERE id = party_id) ILIKE $${countParams.length + 1})`;
+      countQuery += ` AND (invoice_number ILIKE $${countParams.length + 1} OR customer_name ILIKE $${countParams.length + 1})`;
       countParams.push(`%${search}%`);
     }
     if (status !== 'All') {
@@ -97,9 +96,9 @@ router.get('/', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
-    const totalQuery = "SELECT COUNT(*) FROM sales_invoices WHERE invoice_type = 'Wholesale'";
-    const revenueQuery = "SELECT SUM(net_payable) FROM sales_invoices WHERE invoice_type = 'Wholesale'";
-    const monthQuery = "SELECT SUM(net_payable) FROM sales_invoices WHERE invoice_type = 'Wholesale' AND invoice_date >= date_trunc('month', CURRENT_DATE)";
+    const totalQuery = "SELECT COUNT(*) FROM sales_invoices";
+    const revenueQuery = "SELECT SUM(net_amount) FROM sales_invoices";
+    const monthQuery = "SELECT SUM(net_amount) FROM sales_invoices WHERE date >= date_trunc('month', CURRENT_DATE)";
 
     const [total, revenue, month] = await Promise.all([
       db.query(totalQuery),

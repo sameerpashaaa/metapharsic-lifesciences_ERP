@@ -7,25 +7,33 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'sans-serif'],
       },
       colors: {
-        primary: '#2563eb', // Royal Blue
-        secondary: '#475569', // Slate 600
-        success: '#10b981', // Emerald 500
-        warning: '#f59e0b', // Amber 500
-        danger: '#ef4444', // Red 500
-        metal: {
-          900: '#0f172a',
-          800: '#1e293b',
-          700: '#334155',
-          100: '#f1f5f9',
-        }
+        primary: '#111111', // Target primary text/action dark
+        secondary: '#888888', // Muted secondary text
+        accent: '#4CAF72', // Target Sage Green
+        highlight: '#EAF4EC', // Right panel / mint light green
+        surface: '#FFFFFF',
+        page: '#F5F5F5', // Light page background
+        border: '#E0E0E0', // Explicit thin gray border
+        cta: '#111111', // Re-aligning old CTA alias to dark action
+        background: '#F5F5F5', // Align standard BG token
+        text: '#111111',
+        success: '#4CAF72', // Re-mapping success states to sage
+      },
+      boxShadow: {
+        // Explicitly suppress all shadow utilities per no-shadow mandate
+        'sm': 'none',
+        'md': 'none',
+        'lg': 'none',
+        'xl': 'none',
       },
       backgroundImage: {
-        'metallic-dark': 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        'metallic-blue': 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
-        'glass': 'linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)',
+        // Suppress dynamic gradient overrides
+        'metallic-dark': 'none',
+        'metallic-blue': 'none',
+        'glass': 'none',
       }
     }
   },

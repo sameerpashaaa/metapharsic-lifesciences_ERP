@@ -21,7 +21,7 @@ import Sales from './components/Sales';
 import AuditLog from './components/AuditLog';
 import Documents from './components/Documents';
 import Assets from './components/Assets';
-import RnD from './components/RnD'; 
+import RnD from './components/RnD';
 import OMS from './components/OMS'; // Imported OMS component
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import MenuOptions from './components/MenuOptions';
@@ -33,7 +33,7 @@ import LedgerCreation from './components/LedgerCreation';
 
 import { Tab } from './types';
 import { ROLE_ACCESS } from './constants';
-import { Menu, Bell, Search, Info, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Menu, Bell, Search, Info, ShieldAlert, RefreshCw, HelpCircle } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CompanyProvider } from './context/CompanyContext';
 import { KeyboardShortcutProvider, useKeyboardShortcuts } from './context/KeyboardShortcutContext';
@@ -50,19 +50,19 @@ const PlaceholderComponent = ({ title, description }: { title: string, descripti
     <h2 className="text-3xl font-bold text-slate-600 mb-4">{title}</h2>
     <p className="max-w-md text-center text-lg">{description}</p>
     <div className="mt-8 px-4 py-2 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-sm font-medium">
-        Module Under Development
+      Module Under Development
     </div>
   </div>
 );
 
 const AccessDenied = () => (
   <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-fadeIn">
-      <div className="bg-red-50 p-6 rounded-full mb-4">
-          <ShieldAlert size={64} className="text-red-500" />
-      </div>
-      <h2 className="text-2xl font-bold text-slate-800">Access Denied</h2>
-      <p className="mt-2 text-slate-600">You do not have permission to view this module.</p>
-      <p className="text-xs mt-1 text-slate-400">Contact your system administrator.</p>
+    <div className="bg-red-50 p-6 rounded-full mb-4">
+      <ShieldAlert size={64} className="text-red-500" />
+    </div>
+    <h2 className="text-2xl font-bold text-slate-800">Access Denied</h2>
+    <p className="mt-2 text-slate-600">You do not have permission to view this module.</p>
+    <p className="text-xs mt-1 text-slate-400">Contact your system administrator.</p>
   </div>
 );
 
@@ -73,20 +73,82 @@ import { IntelligenceDashboard } from './components/IntelligenceDashboard';
 
 const AppContent: React.FC = () => {
   console.log('AppContent: Rendering...');
-  const { user } = useAuth();
-  
-  // Use Zustand store
-  const { 
-    activeTab, 
-    setActiveTab, 
-    sidebarOpen: isSidebarOpen, 
+  const { user, loading } = useAuth();
+
+  // Use Zustand store (Moved hooks to top to prevent violation)
+  const {
+    activeTab,
+    setActiveTab,
+    sidebarOpen: isSidebarOpen,
     setSidebarOpen: setIsSidebarOpen,
-    toggleSidebar 
+    toggleSidebar
   } = useAppStore();
 
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showMenuOptions, setShowMenuOptions] = useState(false);
   const [activeModule, setActiveModule] = useState<string | null>(null);
+
+  // Responsive sidebar handling
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1280) setIsSidebarOpen(false);
+      else setIsSidebarOpen(true);
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Init
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setIsSidebarOpen]);
+
+  // Reset tab on login
+  useEffect(() => {
+    if (user) {
+      console.log('AppContent: User logged in, resetting to Dashboard');
+      setActiveTab(Tab.DASHBOARD);
+    }
+  }, [user?.id, setActiveTab]);
+
+  const internalToggleSidebar = () => {
+    toggleSidebar();
+  };
+
+  useRegisterKeyboardShortcuts({
+    activeTab: activeTab as Tab,
+    setActiveTab: (tab) => setActiveTab(tab),
+    toggleSidebar: internalToggleSidebar,
+    setShowHelpModal: setShowShortcutsHelp
+  });
+
+  // Add global refresh shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.shiftKey) {
+        e.preventDefault();
+        // Trigger refresh
+        const currentTab = activeTab;
+        setActiveTab(Tab.DASHBOARD);
+        setTimeout(() => setActiveTab(currentTab), 10);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, setActiveTab]);
+
+  // Conditional Returns placed AFTER all static and lifecycle hooks
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-surface">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-border border-t-accent rounded-full animate-spin"></div>
+          <div className="text-accent font-bold uppercase tracking-[0.3em] text-[11px]">Initializing Enterprise Hub...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   // Menu options handlers
   const handleCreateNewCompany = () => {
@@ -198,55 +260,6 @@ const AppContent: React.FC = () => {
     // In a real implementation, this would navigate to the selected module
   };
 
-  // Responsive sidebar handling
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1280) setIsSidebarOpen(false);
-      else setIsSidebarOpen(true);
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Init
-    return () => window.removeEventListener('resize', handleResize);
-  }, [setIsSidebarOpen]);
-
-  // Reset tab on login
-  useEffect(() => {
-    if (user) {
-      console.log('AppContent: User logged in, resetting to Dashboard');
-      setActiveTab(Tab.DASHBOARD);
-    }
-  }, [user?.id, setActiveTab]);
-
-  const internalToggleSidebar = () => {
-    toggleSidebar();
-  };
-
-  useRegisterKeyboardShortcuts({
-    activeTab: activeTab as Tab,
-    setActiveTab: (tab) => setActiveTab(tab),
-    toggleSidebar: internalToggleSidebar,
-    setShowHelpModal: setShowShortcutsHelp
-  });
-
-  // Add global refresh shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.shiftKey) {
-        e.preventDefault();
-        // Trigger refresh
-        const currentTab = activeTab;
-        setActiveTab(Tab.DASHBOARD);
-        setTimeout(() => setActiveTab(currentTab), 10);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, setActiveTab]);
-
-  if (!user) {
-    return <Login />;
-  }
 
   const renderContent = () => {
     // Security Check
@@ -274,17 +287,17 @@ const AppContent: React.FC = () => {
       case Tab.CRM: return <CRM />;
       case Tab.OMS: return <OMS />; // Updated component
       case Tab.SALES: return <Sales />;
-      
+
       // Production & QC
       case Tab.MANUFACTURING: return <Manufacturing />;
       case Tab.QC: return <QualityControl />;
-      case Tab.R_AND_D: return <RnD />; 
-      
+      case Tab.R_AND_D: return <RnD />;
+
       // Operations
       case Tab.LOGISTICS: return <Logistics />;
       case Tab.ASSETS: return <Assets />;
       case Tab.DOCUMENTS: return <Documents />;
-      
+
       // Admin
       case Tab.EMPLOYEES: return <HR />;
       case Tab.REPORTS: return <Reports />;
@@ -323,7 +336,7 @@ const AppContent: React.FC = () => {
     };
     return map[tab] || tab.charAt(0) + tab.slice(1).toLowerCase().replace(/_/g, ' ');
   };
-  
+
   const getShortcutKeyForTab = (tab: Tab): string => {
     const shortcuts: Record<Tab, string> = {
       [Tab.DASHBOARD]: 'D',
@@ -363,8 +376,6 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
-
-      
       {/* Main Application Layout */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
         <div className="flex h-full min-h-0">
@@ -374,97 +385,113 @@ const AppContent: React.FC = () => {
             setActiveTab={setActiveTab}
             isOpen={isSidebarOpen}
           />
-          
+
           {/* Main Content Area - Contains header and content */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
             {/* TOP COMMAND RIBBON (Enterprise Style) */}
-            <header className="h-10 px-4 flex items-center justify-between z-10 bg-[#1D3557] text-white sticky top-0 shadow-md">
-              <div className="flex items-center gap-6">
+            <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shadow-sm z-30">
+              <div className="flex items-center gap-8">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-1 rounded hover:bg-white/10 text-white transition-all"
+                  className="p-3 rounded-2xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-sm border border-slate-100 hover:border-slate-200"
                 >
-                  <Menu size={16} />
+                  <Menu size={26} />
                 </button>
-                <div className="flex items-center gap-2 pr-4 border-r border-white/20">
-                   <h1 className="text-[11px] font-black text-[#F1FAEE] uppercase tracking-[0.2em]">
-                     {getPageTitle(activeTab)}
-                   </h1>
-                </div>
-                
-                <div className="flex text-[10px] font-bold tracking-wider gap-1 overflow-hidden">
-                   <button onClick={() => setActiveTab(Tab.POS)} className="px-3 py-1 hover:bg-white/10 rounded transition-colors uppercase">POS</button>
-                   <button onClick={() => setActiveTab(Tab.INVENTORY)} className="px-3 py-1 hover:bg-white/10 rounded transition-colors uppercase">Stock</button>
-                   <button onClick={() => setActiveTab(Tab.ACCOUNTS)} className="px-3 py-1 hover:bg-white/10 rounded transition-colors uppercase">Finance</button>
-                   <button onClick={() => setActiveTab(Tab.REPORTS)} className="px-3 py-1 hover:bg-white/10 rounded transition-colors uppercase">Reports</button>
+
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-0.5">Metapharsic ERP</span>
+                  <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    {getPageTitle(activeTab)}
+                  </h1>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="hidden lg:flex items-center gap-1.5 text-[9px] font-bold text-blue-200 uppercase tracking-tighter">
-                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                   System Live • v4.2.0
-                </div>
-                
-                <div className="h-4 w-px bg-white/10 mx-1"></div>
-                
-                <button 
-                  onClick={() => {
-                    const currentTab = activeTab;
-                    setActiveTab(Tab.DASHBOARD);
-                    setTimeout(() => setActiveTab(currentTab), 10);
-                  }}
-                  className="p-1 hover:bg-white/10 rounded text-blue-200" title="Refresh Page">
-                  <RefreshCw size={14} />
-                </button>
-                
-                <NotificationBell />
+              <div className="flex text-[13px] font-bold tracking-tight gap-1 overflow-hidden items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-200/60">
+                <button onClick={() => setActiveTab(Tab.POS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.POS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>POS</button>
+                <button onClick={() => setActiveTab(Tab.INVENTORY)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.INVENTORY ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Inventory</button>
+                <button onClick={() => setActiveTab(Tab.ACCOUNTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.ACCOUNTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Accounts</button>
+                <button onClick={() => setActiveTab(Tab.REPORTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.REPORTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Reports</button>
+              </div>
 
-                <MenuOptions 
-                  onCreateNewCompany={handleCreateNewCompany}
-                  onRestoreDefaultDemo={handleRestoreDefaultDemo}
-                  onRestoreMyDemo={handleRestoreMyDemo}
-                  onDeleteSavedPassword={handleDeleteSavedPassword}
-                  onChangeOperatorPowers={handleChangeOperatorPowers}
-                  onChangeERPVersion={handleChangeERPVersion}
-                  onBillRetail={handleBillRetail}
-                  onBillWholesale={handleBillWholesale}
-                  onSalesReturnExpiry={handleSalesReturnExpiry}
-                  onPurchaseReturnExpiry={handlePurchaseReturnExpiry}
-                  onReceiptPayment={handleReceiptPayment}
-                  onCashBankBook={handleCashBankBook}
-                  onLedgerAccount={handleLedgerAccount}
-                  onOutstanding={handleOutstanding}
-                  onStockStatus={handleStockStatus}
-                  onStockSalesAnalysis={handleStockSalesAnalysis}
-                  onReorder={handleReorder}
-                  onSalesBook={handleSalesBook}
-                  onDispatchSummary={handleDispatchSummary}
-                  onBillTagging={handleBillTagging}
-                  onDailyAnalysis={handleDailyAnalysis}
-                  onTodaysGrossProfit={handleTodaysGrossProfit}
-                />
+              <div className="flex items-center gap-4">
+                <div className="hidden xl:flex flex-col items-end mr-2">
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                    Terminal Active
+                  </div>
+                  <div className="text-[10px] font-medium text-slate-400">Node v20.11.0 • ERP v4.2.0</div>
+                </div>
+
+                <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const currentTab = activeTab;
+                      setActiveTab(Tab.DASHBOARD);
+                      setTimeout(() => setActiveTab(currentTab), 10);
+                    }}
+                    className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
+                    title="Refresh Page"
+                  >
+                    <RefreshCw size={20} />
+                  </button>
+
+                  <button
+                    className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
+                    title="Keyboard Shortcuts"
+                  >
+                    <HelpCircle size={20} />
+                  </button>
+
+                  <NotificationBell />
+
+                  <MenuOptions
+                    onCreateNewCompany={handleCreateNewCompany}
+                    onRestoreDefaultDemo={handleRestoreDefaultDemo}
+                    onRestoreMyDemo={handleRestoreMyDemo}
+                    onDeleteSavedPassword={handleDeleteSavedPassword}
+                    onChangeOperatorPowers={handleChangeOperatorPowers}
+                    onChangeERPVersion={handleChangeERPVersion}
+                    onBillRetail={handleBillRetail}
+                    onBillWholesale={handleBillWholesale}
+                    onSalesReturnExpiry={handleSalesReturnExpiry}
+                    onPurchaseReturnExpiry={handlePurchaseReturnExpiry}
+                    onReceiptPayment={handleReceiptPayment}
+                    onCashBankBook={handleCashBankBook}
+                    onLedgerAccount={handleLedgerAccount}
+                    onOutstanding={handleOutstanding}
+                    onStockStatus={handleStockStatus}
+                    onStockSalesAnalysis={handleStockSalesAnalysis}
+                    onReorder={handleReorder}
+                    onSalesBook={handleSalesBook}
+                    onDispatchSummary={handleDispatchSummary}
+                    onBillTagging={handleBillTagging}
+                    onDailyAnalysis={handleDailyAnalysis}
+                    onTodaysGrossProfit={handleTodaysGrossProfit}
+                  />
+                </div>
               </div>
             </header>
 
             {/* Main Content Area */}
-            <main className={`flex-1 min-h-0 relative bg-slate-100 ${activeTab === Tab.POS ? 'p-0' : 'p-2'}`}>
-                {/* Background decoration */}
-                <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-blue-50/50 to-transparent -z-10 pointer-events-none"></div>
-                <div className={`mx-auto flex flex-col h-full ${activeTab === Tab.POS ? 'max-w-none' : 'max-w-[1600px]'}`}>
-                    {renderContent()}
-                </div>
+            <main className={`flex-1 min-h-0 relative bg-slate-50/50 ${activeTab === Tab.POS ? 'p-0' : 'p-3'}`}>
+              {/* Decorative gradient overlay */}
+              <div className="absolute top-0 left-0 w-full h-80 bg-gradient-to-b from-blue-50/40 via-transparent to-transparent -z-10 pointer-events-none"></div>
+
+              <div className={`mx-auto flex flex-col h-full ${activeTab === Tab.POS ? 'max-w-none' : 'max-w-[1700px]'}`}>
+                {renderContent()}
+              </div>
             </main>
           </div>
         </div>
       </div>
-    
-      <KeyboardShortcutsHelp 
-        isOpen={showShortcutsHelp} 
-        onClose={() => setShowShortcutsHelp(false)} 
+
+      <KeyboardShortcutsHelp
+        isOpen={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
       />
-      
-          </div>
+    </div>
   );
 };
 

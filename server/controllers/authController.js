@@ -2,7 +2,7 @@
 // Authentication controller with security best practices
 
 const db = require('../db');
-const { hashPassword, comparePassword, validatePasswordStrength, generateResetToken } = require('../utils/password');
+const { hashPassword, comparePassword, validatePasswordStrength, generateResetToken, hashResetToken } = require('../utils/password');
 const { generateTokenPair, addToBlacklist, verifyRefreshToken } = require('../utils/jwt');
 const { generateTOTPSecret, verifyTOTPToken, verifyEmailOTP, generateEmailOTP } = require('../utils/2fa');
 const logger = require('../utils/logger');
@@ -479,6 +479,102 @@ async function confirm2FA(req, res) {
   }
 }
 
+// ============================================
+// FORGOT PASSWORD
+// ============================================
+async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Find user
+    const { rows } = await db.query(
+      'SELECT id, email, name FROM users WHERE email = $1',
+      [String(email).trim().toLowerCase()]
+    );
+
+    if (rows.length === 0) {
+      // Return success message even if email not found to prevent enumeration
+      return res.json({ message: 'If an account with that email exists, instructions have been sent.' });
+    }
+
+    const user = rows[0];
+    
+    // Generate plain token
+    const resetToken = generateResetToken();
+    
+    // Hash token for storage
+    const hashedToken = await hashResetToken(resetToken);
+    
+    // Set expiry (1 hour)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+
+    await db.query(
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      [hashedToken, expiresAt, user.id]
+    );
+
+    logger.security('Password reset token generated', { userId: user.id });
+
+    // Output token in debug JSON for direct usability without email configuration
+    res.json({ 
+      message: 'Simulated reset link sent.', 
+      debug_token: resetToken 
+    });
+
+  } catch (error) {
+    logger.error('Forgot password error', { error: error.message });
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+}
+
+// ============================================
+// RESET PASSWORD
+// ============================================
+async function resetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+    
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password required' });
+    }
+
+    const hashedToken = await hashResetToken(token);
+
+    const { rows } = await db.query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      [hashedToken]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Token is invalid or expired' });
+    }
+
+    const userId = rows[0].id;
+    const passwordCheck = validatePasswordStrength(password);
+    if (!passwordCheck.isValid) {
+      return res.status(400).json({ error: 'Weak password', feedback: passwordCheck.feedback });
+    }
+
+    const hashedPass = await hashPassword(password);
+
+    await db.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [hashedPass, userId]
+    );
+
+    logger.security('Password successfully reset', { userId });
+    res.json({ message: 'Password successfully updated.' });
+
+  } catch (error) {
+    logger.error('Reset password error', { error: error.message });
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -486,5 +582,7 @@ module.exports = {
   refreshToken,
   logout,
   enable2FA,
-  confirm2FA
+  confirm2FA,
+  forgotPassword,
+  resetPassword
 };
