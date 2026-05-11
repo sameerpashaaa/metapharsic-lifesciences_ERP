@@ -8,7 +8,7 @@ const ledgerHelper = require('../utils/ledgerHelper');
 
 // Middleware
 router.use(verifyTokenMiddleware);
-router.use(verifyRoleMiddleware(['ADMIN', 'PHARMACIST', 'SALES_MANAGER']));
+router.use(verifyRoleMiddleware(['ADMIN', 'PHARMACIST', 'SALES_MANAGER', 'ACCOUNTANT']));
 
 /**
  * GET /api/pos/parties
@@ -45,32 +45,73 @@ router.get('/invoices', async (req, res) => {
 
 /**
  * GET /api/pos/invoices/:id
- * Fetch single invoice with items
+ * Fetch single invoice with items (Robust lookup)
  */
 router.get('/invoices/:id', async (req, res) => {
     try {
-        const { rows: [invoice] } = await db.query(
-            `SELECT si.*, u.name as created_by_name 
-             FROM sales_invoices si 
-             LEFT JOIN users u ON si.created_by = u.id 
-             WHERE si.id = $1`,
-            [req.params.id]
-        );
+        const id = req.params.id ? req.params.id.trim() : null;
+        if (!id) return res.status(400).json({ success: false, error: 'ID is required' });
+
+        let invoice;
+
+        // 1. Try direct ID lookup (handles UUID or string ID)
+        try {
+            const { rows } = await db.query(
+                `SELECT si.*, u.name as created_by_name 
+                 FROM sales_invoices si 
+                 LEFT JOIN users u ON si.created_by = u.id 
+                 WHERE si.id::text = $1`,
+                [id]
+            );
+            if (rows.length > 0) invoice = rows[0];
+        } catch (e) {
+            // Likely invalid UUID format error, ignore and try next
+            logger.debug('ID lookup failed, trying invoice_number');
+        }
+
+        // 2. If not found by ID, try lookup by invoice_number or invoice_no
+        if (!invoice) {
+            const { rows } = await db.query(
+                `SELECT si.*, u.name as created_by_name 
+                 FROM sales_invoices si 
+                 LEFT JOIN users u ON si.created_by = u.id 
+                 WHERE si.invoice_number = $1 OR si.invoice_no = $1 OR si.id::text = $1`,
+                [id]
+            );
+            if (rows.length > 0) invoice = rows[0];
+        }
 
         if (!invoice) {
             return res.status(404).json({ success: false, error: 'Invoice not found' });
         }
 
+        // Fetch items with product and batch details (Flexible column naming)
         const { rows: items } = await db.query(
-            `SELECT sii.*, p.name as product_name, p.generic_name, b.batch_number 
+            `SELECT sii.*, p.name as product_name, p.generic_name, 
+             b.id as batch_id, b.expiry_date
              FROM sales_invoice_items sii
              LEFT JOIN products p ON sii.product_id = p.id
              LEFT JOIN batches b ON sii.batch_id = b.id
-             WHERE sii.invoice_id = $1`,
-            [req.params.id]
+             WHERE sii.invoice_id = $1 OR sii.sales_invoice_id = $1`,
+            [invoice.id]
         );
 
-        invoice.items = items;
+        // Map items to include batch number regardless of column name
+        const fullItems = await Promise.all(items.map(async (item) => {
+            if (item.batch_id) {
+                const { rows: [batch] } = await db.query('SELECT * FROM batches WHERE id = $1', [item.batch_id]);
+                if (batch) {
+                    return {
+                        ...item,
+                        batch_number: batch.batch_number || batch.batch_no || '-',
+                        batch_no: batch.batch_number || batch.batch_no || '-'
+                    };
+                }
+            }
+            return { ...item, batch_number: '-', batch_no: '-' };
+        }));
+
+        invoice.items = fullItems;
         res.json({ success: true, data: invoice });
     } catch (error) {
         logger.error('POS Invoice Details Error:', error.message);
@@ -465,10 +506,15 @@ router.get('/products', async (req, res) => {
     try {
         const { rows: products } = await db.query('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY name');
         const fullProducts = await Promise.all(products.map(async (p) => {
+            // Use SELECT * to be flexible with column names (stock vs quantity vs available_qty)
             const { rows: batches } = await db.query(
-                'SELECT * FROM batches WHERE product_id = $1 AND stock > 0 ORDER BY expiry_date ASC',
+                'SELECT * FROM batches WHERE product_id = $1 ORDER BY expiry_date ASC',
                 [p.id]
             );
+
+            // Filter available batches in memory to be schema-agnostic
+            const availableBatches = batches.filter(b => (b.stock || b.quantity || b.available_qty || 0) > 0);
+
             return {
                 id: p.id,
                 name: p.name,
@@ -479,11 +525,11 @@ router.get('/products', async (req, res) => {
                 gst: parseFloat(p.gst || 12),
                 scheduleType: p.schedule_type,
                 totalStock: parseInt(p.current_stock || 0),
-                batches: batches.map(b => ({
+                batches: availableBatches.map(b => ({
                     id: b.id,
                     batchNumber: b.batch_number || b.batch_no,
                     expiryDate: b.expiry_date,
-                    stock: parseInt(b.stock || b.available_qty || 0),
+                    stock: parseInt(b.stock || b.available_qty || b.quantity || 0),
                     mrp: parseFloat(b.mrp || 0),
                     purchaseRate: parseFloat(b.purchase_rate || 0),
                     sellingRate: parseFloat(b.selling_rate || 0)

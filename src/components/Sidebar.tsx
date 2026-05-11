@@ -110,7 +110,10 @@ const Sidebar: React.FC<SidebarProps> = ({
  const { 
  sidebarOpen: storeIsOpen, 
  activeTab: storeActiveTab, 
- setActiveTab: storeSetActiveTab 
+ setActiveTab: storeSetActiveTab,
+ setPosTerminalOpen,
+ posState,
+ posBillState
  } = useAppStore();
 
  // Use props if provided, otherwise fallback to store
@@ -119,6 +122,11 @@ const Sidebar: React.FC<SidebarProps> = ({
  const setActiveTab = (tab: Tab) => {
  if (propSetActiveTab) propSetActiveTab(tab);
  storeSetActiveTab(tab);
+ 
+ // Auto-open terminal when navigating to POS tab for multitasking
+ if (tab === Tab.POS) {
+ setPosTerminalOpen(true);
+ }
  };
 
  return (
@@ -183,8 +191,22 @@ const Sidebar: React.FC<SidebarProps> = ({
  </span>
  
  {isOpen && (
- <span className="ml-3 whitespace-nowrap transition-all">
+ <span className="ml-3 whitespace-nowrap transition-all flex items-center justify-between w-full pr-2">
  {item.label}
+ {item.id === Tab.POS && (posState === 'side' || posState === 'mini') && (
+   <span title="POS is active in background">
+     {posBillState.items.some(i => parseFloat(i.quantity) > 0) ? (
+       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1D9E75] text-[9px] font-bold text-white shadow-sm ring-1 ring-white">
+         {posBillState.items.filter(i => parseFloat(i.quantity) > 0).length}
+       </span>
+     ) : (
+       <span className="flex h-2 w-2 relative">
+         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1D9E75] opacity-75"></span>
+         <span className="relative inline-flex rounded-full h-2 w-2 bg-[#1D9E75]"></span>
+       </span>
+     )}
+   </span>
+ )}
  </span>
  )}
  </button>

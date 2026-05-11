@@ -31,6 +31,8 @@ import MultiBranchDashboard from './components/MultiBranchDashboard';
 import InventoryAnalytics from './components/InventoryAnalytics';
 import LedgerCreation from './components/LedgerCreation';
 
+import POSTerminalModal from './components/POSTerminalModal';
+
 import { Tab } from './types';
 import { ROLE_ACCESS } from './constants';
 import { Menu, Bell, Search, Info, ShieldAlert, RefreshCw, HelpCircle } from 'lucide-react';
@@ -66,10 +68,8 @@ const AccessDenied = () => (
   </div>
 );
 
-import { useAppStore } from './store/useAppStore';
-
-
 import { IntelligenceDashboard } from './components/IntelligenceDashboard';
+import { useAppStore } from './store/useAppStore';
 
 const AppContent: React.FC = () => {
   console.log('AppContent: Rendering...');
@@ -81,7 +81,11 @@ const AppContent: React.FC = () => {
     setActiveTab,
     sidebarOpen: isSidebarOpen,
     setSidebarOpen: setIsSidebarOpen,
-    toggleSidebar
+    toggleSidebar,
+    posTerminalOpen,
+    setPosTerminalOpen,
+    posState,
+    setPosState
   } = useAppStore();
 
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
@@ -100,11 +104,10 @@ const AppContent: React.FC = () => {
   }, [setIsSidebarOpen]);
 
   // Reset tab on login
-  useEffect(() => {
-    if (user) {
-      console.log('AppContent: User logged in, resetting to Dashboard');
-      setActiveTab(Tab.DASHBOARD);
-    }
+  useEffect(() => { 
+    if (user) { 
+      setActiveTab(Tab.DASHBOARD); 
+    } 
   }, [user?.id, setActiveTab]);
 
   const internalToggleSidebar = () => {
@@ -186,11 +189,11 @@ const AppContent: React.FC = () => {
 
   // Billing handlers
   const handleBillRetail = () => {
-    setActiveTab(Tab.POS);
+    setPosTerminalOpen(true);
   };
 
   const handleBillWholesale = () => {
-    setActiveTab(Tab.POS);
+    setPosTerminalOpen(true);
   };
 
   // Returns & Expiry handlers
@@ -375,26 +378,38 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden relative">
       {/* Main Application Layout */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
         <div className="flex h-full min-h-0">
           {/* Sidebar - remains as a separate column */}
           <Sidebar
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              if (posState === 'full') setPosState('side');
+            }}
             isOpen={isSidebarOpen}
           />
 
-          {/* Main Content Area - Contains header and content */}
-          <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
-            {/* TOP COMMAND RIBBON (Enterprise Style) */}
-            <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shadow-sm z-30">
-              <div className="flex items-center gap-8">
-                <button
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-3 rounded-2xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-sm border border-slate-100 hover:border-slate-200"
-                >
+          {/* Dynamic Grid Layout for Main Content & POS Panel */}
+          <div 
+            className="flex-1 flex overflow-hidden bg-page relative transition-all duration-300 ease-in-out"
+            style={{ 
+              display: 'grid',
+              gridTemplateColumns: posState === 'full' ? '0fr 1fr' : posState === 'side' ? '1fr 420px' : '1fr 0fr',
+              gap: 0
+            }}
+          >
+            {/* LEFT: Standard ERP Page Content */}
+            <div className="flex flex-col h-full overflow-hidden relative min-w-0" style={{ opacity: posState === 'full' ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: posState === 'full' ? 'none' : 'auto' }}>
+              {/* TOP COMMAND RIBBON (Enterprise Style) */}
+              <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shadow-sm z-30">
+                <div className="flex items-center gap-8">
+                  <button
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="p-3 rounded-2xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-sm border border-slate-100 hover:border-slate-200"
+                  >
                   <Menu size={26} />
                 </button>
 
@@ -407,7 +422,15 @@ const AppContent: React.FC = () => {
               </div>
 
               <div className="flex text-[13px] font-bold tracking-tight gap-1 overflow-hidden items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-200/60">
-                <button onClick={() => setActiveTab(Tab.POS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.POS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>POS</button>
+                <button 
+                  onClick={() => {
+                    setActiveTab(Tab.POS);
+                    setPosTerminalOpen(true);
+                  }} 
+                  className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.POS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
+                >
+                  POS
+                </button>
                 <button onClick={() => setActiveTab(Tab.INVENTORY)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.INVENTORY ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Inventory</button>
                 <button onClick={() => setActiveTab(Tab.ACCOUNTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.ACCOUNTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Accounts</button>
                 <button onClick={() => setActiveTab(Tab.REPORTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.REPORTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Reports</button>
@@ -475,7 +498,7 @@ const AppContent: React.FC = () => {
             </header>
 
             {/* Main Content Area */}
-            <main className={`flex-1 min-h-0 relative bg-slate-50/50 ${activeTab === Tab.POS ? 'p-0' : 'p-3'}`}>
+            <main className={`flex-1 min-h-0 relative bg-slate-50/50 transition-all duration-300 ${activeTab === Tab.POS ? 'p-0' : 'p-3'}`}>
               {/* Decorative gradient overlay */}
               <div className="absolute top-0 left-0 w-full h-80 bg-gradient-to-b from-blue-50/40 via-transparent to-transparent -z-10 pointer-events-none"></div>
 
@@ -484,13 +507,34 @@ const AppContent: React.FC = () => {
               </div>
             </main>
           </div>
+          
+          {/* RIGHT: POS Panel Content Container */}
+          <div className="flex flex-col h-full bg-page relative z-20">
+            {(posState === 'full' || posState === 'side') && (
+              <POSTerminalModal 
+                isOpen={true} 
+                onClose={() => setPosState('closed')} 
+                initialItems={[]}
+              />
+            )}
+          </div>
         </div>
       </div>
+
+      {/* FLOATING MINI CARD */}
+      {posState === 'mini' && (
+        <POSTerminalModal 
+          isOpen={true} 
+          onClose={() => setPosState('closed')} 
+          initialItems={[]}
+        />
+      )}
 
       <KeyboardShortcutsHelp
         isOpen={showShortcutsHelp}
         onClose={() => setShowShortcutsHelp(false)}
       />
+    </div>
     </div>
   );
 };

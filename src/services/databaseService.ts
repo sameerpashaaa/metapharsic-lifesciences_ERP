@@ -198,24 +198,52 @@ export const getAllInvoices = async (): Promise<SalesInvoice[]> => {
 
 export const getInvoiceById = async (id: string): Promise<SalesInvoice | null> => {
   try {
+    // 1. Try to get from backend API
     const response = await apiClient.get(`/pos/invoices/${id}`);
-    if (response.success) {
+    if (response.success && response.data) {
       const inv = response.data;
       return {
         ...inv,
+        id: inv.id,
         invoiceNumber: inv.invoice_number || inv.invoiceNumber || inv.invoice_no || inv.id,
         customerName: inv.customer_name || inv.customerName || inv.party_name || 'Counter Customer',
+        customerMobile: inv.customer_mobile || inv.customerMobile || '',
+        doctorName: inv.doctor_name || inv.doctorName || '',
         date: inv.date || inv.invoice_date || new Date().toISOString().split('T')[0],
         netAmount: parseFloat(inv.net_amount || inv.netAmount || inv.net_payable || 0),
-        taxableValue: parseFloat(inv.taxable_value || inv.taxableValue || 0),
-        totalGst: parseFloat(inv.total_gst || inv.totalGst || 0)
+        taxableValue: parseFloat(inv.taxable_value || inv.taxableValue || inv.total_taxable || 0),
+        totalGst: parseFloat(inv.total_gst || inv.totalGst || 0),
+        status: inv.status || 'Completed',
+        items: (inv.items || []).map((item: any) => ({
+          ...item,
+          productId: item.product_id || item.productId,
+          productName: item.product_name || item.productName || 'Unknown Product',
+          batchId: item.batch_id || item.batchId,
+          batchNumber: item.batch_number || item.batchNumber || item.batch_no || '-',
+          quantity: Number(item.quantity || 0),
+          rate: parseFloat(item.rate || item.selling_rate || 0),
+          totalAmount: parseFloat(item.total_amount || item.totalAmount || 0),
+          gstPercent: parseFloat(item.gst_percent || item.gstPercent || 0)
+        }))
       };
     }
-    return null;
   } catch (error) {
-    console.error(`Failed to get invoice ${id}:`, error);
-    return null;
+    console.warn(`Backend lookup failed for invoice ${id}, checking local storage:`, error);
   }
+
+  // 2. If backend fails or not found, try local storage
+  try {
+    const localInvoices: SalesInvoice[] = JSON.parse(localStorage.getItem('erp_invoices') || '[]');
+    const localInv = localInvoices.find(inv => inv.id === id || inv.invoiceNumber === id);
+    if (localInv) {
+      console.log('Found invoice in local storage:', id);
+      return localInv;
+    }
+  } catch (e) {
+    console.error('Failed to read from local storage:', e);
+  }
+
+  return null;
 };
 
 

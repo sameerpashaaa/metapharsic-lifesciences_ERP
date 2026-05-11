@@ -668,8 +668,8 @@ const ComprehensiveAccounts: React.FC = () => {
  <thead className="bg-slate-800 text-white">
  <tr>
  <th className="p-3">Account</th>
- <th className="p-3 text-right">Debit (₹)}</th>
- <th className="p-3 text-right">Credit (₹)}</th>
+ <th className="p-3 text-right">Debit (₹)</th>
+ <th className="p-3 text-right">Credit (₹)</th>
  </tr>
  </thead>
  <tbody className="divide-y divide-slate-200">
@@ -929,7 +929,7 @@ const ComprehensiveAccounts: React.FC = () => {
  
  {/* Default Overall Organization Activity Mock Chart */}
  <div className="w-full h-64 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
- <h4 className="text-xs font-bold text-slate-500 uppercase mb-4">Organization Ledger Activity (30 Days)}</h4>
+ <h4 className="text-xs font-bold text-slate-500 uppercase mb-4">Organization Ledger Activity (30 Days)</h4>
  <ResponsiveContainer width="100%" height="80%">
  <AreaChart data={[
  { date: '1st', volume: 4000 },
@@ -1015,8 +1015,8 @@ const ComprehensiveAccounts: React.FC = () => {
  <th className="p-4">Date</th>
  <th className="p-4">Voucher No</th>
  <th className="p-4">Narration</th>
- <th className="p-4 text-right text-green-600">Debit (Dr)}</th>
- <th className="p-4 text-right text-red-600">Credit (Cr)}</th>
+ <th className="p-4 text-right text-green-600">Debit (Dr)</th>
+ <th className="p-4 text-right text-red-600">Credit (Cr)</th>
  <th className="p-4 text-right">Balance</th>
  </tr>
  </thead>
@@ -1042,7 +1042,7 @@ const ComprehensiveAccounts: React.FC = () => {
  {activeTab === 'AGING' && (
  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-full">
  <div className="flex justify-between items-center mb-4">
- <h3 className="font-bold text-slate-800">Aging Analysis (Receivables)}</h3>
+ <h3 className="font-bold text-slate-800">Aging Analysis (Receivables)</h3>
  <div className="flex gap-2">
  {agingData.length === 0 && (
  <button 
@@ -1187,7 +1187,7 @@ const ComprehensiveAccounts: React.FC = () => {
  <p className="font-semibold text-slate-800">₹{cc.budget.toLocaleString()}</p>
  </div>
  <div className="text-right">
- <p className="text-slate-500 text-xs uppercase font-bold">Consumed (Actuals)}</p>
+ <p className="text-slate-500 text-xs uppercase font-bold">Consumed (Actuals)</p>
  <p className={`font-semibold ${isOverBudget ? 'text-red-600' : 'text-slate-800'}`}>₹{cc.consumed.toLocaleString()}</p>
  </div>
  </div>

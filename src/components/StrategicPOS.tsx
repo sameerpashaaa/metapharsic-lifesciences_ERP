@@ -9,6 +9,7 @@ import {
   Database, FileSpreadsheet, BarChart3, ShieldCheck, ClipboardList
 } from 'lucide-react';
 import TallyVoucherEntry from './TallyVoucherEntry';
+import POSTerminalModal from './POSTerminalModal';
 import { MOCK_PRODUCTS } from '../constants';
 import { Product, Batch, SalesInvoice, SalesInvoiceItem, Party, VoucherTypeMaster, VoucherType } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -47,11 +48,15 @@ interface POSDashboardSummary {
   recentInvoices: POSDashboardInvoiceRow[];
 }
 
+import { useAppStore } from '../store/useAppStore';
+
 const StrategicPOS: React.FC = () => {
   const { hasPermission } = useAuth();
   const { addNotification } = useNotifications();
+  const { posTerminalOpen, setPosTerminalOpen } = useAppStore();
 
   // --- State: Tabs & Navigation ---
+  // ... rest of the component
 
   const [openTabs, setOpenTabs] = useState<{id: string, label: string}[]>([
     { id: 'POS_DASHBOARD', label: 'POS Terminal' }
@@ -224,10 +229,14 @@ const StrategicPOS: React.FC = () => {
   const mappedInvoices = Array.isArray(summaryData?.recentInvoices) 
   ? summaryData.recentInvoices.map((inv: any) => ({
   ...inv,
+  id: inv.id || inv.invoice_number || inv.invoice_no,
+  invoiceNumber: inv.invoice_number || inv.invoice_no || inv.id || 'N/A',
   invoice_number: inv.invoice_number || inv.invoice_no || inv.id || 'N/A',
+  customerName: inv.customer_name || inv.party_name || 'Counter Customer',
   customer_name: inv.customer_name || inv.party_name || 'Counter Customer',
+  date: inv.date || inv.invoice_date || new Date().toISOString(),
   invoice_date: inv.date || inv.invoice_date || new Date().toISOString(),
-  amount: Number(inv.net_amount || inv.amount || 0),
+  amount: Number(inv.net_amount || inv.amount || inv.net_payable || 0),
   status: inv.status || 'Completed',
   items_sold: Number(inv.items_sold || 0)
   })) 
@@ -317,15 +326,43 @@ const StrategicPOS: React.FC = () => {
   }, [activeTab, isEditingVT, vtForm, selectedVoucherType]);
 
   const handleViewInvoice = async (invoiceId: string) => {
+    if (!invoiceId) {
+      console.warn('StrategicPOS: handleViewInvoice called without invoiceId');
+      return;
+    }
+    
+    const cleanId = String(invoiceId).trim();
+    
     try {
       setLoading(true);
-      const invoice = await getInvoiceById(invoiceId);
+      console.log('StrategicPOS: Fetching invoice:', cleanId);
+      const invoice = await getInvoiceById(cleanId);
       if (invoice) {
         setSelectedInvoice(invoice);
         setShowInvoicePreview(true);
+      } else {
+        console.error('StrategicPOS: Invoice not found for ID:', cleanId);
+        addNotification({
+          type: 'error',
+          title: 'Invoice Not Found',
+          message: `The invoice details for ${cleanId} could not be retrieved from the server.`,
+          priority: 'medium',
+          module: 'POS',
+          sourceTable: 'sales_invoices',
+          sourceLabel: 'Invoice view attempt'
+        });
       }
-    } catch (err) {
-      console.error('Failed to view invoice:', err);
+    } catch (err: any) {
+      console.error('StrategicPOS: Failed to view invoice:', err);
+      addNotification({
+        type: 'error',
+        title: 'Error Loading Invoice',
+        message: err.message || 'Check your connection to the server.',
+        priority: 'high',
+        module: 'POS',
+        sourceTable: 'sales_invoices',
+        sourceLabel: 'Invoice view attempt'
+      });
     } finally {
       setLoading(false);
     }
@@ -869,7 +906,7 @@ const StrategicPOS: React.FC = () => {
             <h2 className="mb-6 text-2xl font-black">Start New Billing</h2>
             <p className="mb-8 text-sm leading-relaxed text-blue-100/70">Fast-track retail counter sales with optimized search and batch selection.</p>
             <button
-              onClick={() => openTab('NEW_INVOICE', 'Counter Sale')}
+              onClick={() => setPosTerminalOpen(true)}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-blue-900/40 transition-all hover:bg-blue-400"
             >
               <Plus size={18} /> Open POS Terminal
@@ -1995,6 +2032,8 @@ const StrategicPOS: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Global POSTerminalModal is handled in App.tsx */}
     </EnterpriseLayout>
   );
 };

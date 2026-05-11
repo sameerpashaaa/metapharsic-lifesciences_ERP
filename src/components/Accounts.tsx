@@ -107,9 +107,9 @@ const Accounts: React.FC = () => {
  // 4. SEARCH & PAGINATION (For Parties Tab)
  // ============================================================
  
- const { query: partySearch, setQuery: setPartySearch, results: filteredParties } = useSearch<Party>(
+ const { query: partySearch, setQuery: setPartySearch, results: filteredParties } = useSearch<any>(
  parties || [],
- ['account_name', 'account_code', 'account_group']
+ ['account_name', 'account_code', 'account_group', 'name', 'city', 'mobile'] as string[]
  );
 
  const partyPagination = usePagination<Party>(filteredParties, 15);

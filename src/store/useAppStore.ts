@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Tab } from '../types';
 
+export type POSStateMode = 'full' | 'side' | 'mini' | 'closed';
+
 interface AppState {
   // Sidebar/UI State
   sidebarOpen: boolean;
@@ -10,6 +12,22 @@ interface AppState {
   // Tab Management
   openTabs: Tab[];
   activeTab: Tab;
+  
+  // Global POS Terminal
+  posTerminalOpen: boolean; // Keep for backwards compatibility
+  posState: POSStateMode;
+  posBillState: {
+    items: any[];
+    partyName: string;
+    patientName: string;
+    customerMobile: string;
+    doctorName: string;
+    abhaNo: string;
+    salesLedger: string;
+    narration: string;
+    voucherType: string;
+    date: string;
+  };
   
   // Notifications
   notifications: Array<{
@@ -23,6 +41,10 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   setActiveModule: (module: string) => void;
   toggleDarkMode: () => void;
+  setPosTerminalOpen: (open: boolean) => void; // Keep for backwards compatibility
+  setPosState: (state: POSStateMode) => void;
+  setPosBillState: (billState: Partial<AppState['posBillState']>) => void;
+  clearPosBillState: () => void;
   
   addTab: (tab: Tab) => void;
   removeTab: (tab: Tab) => void;
@@ -38,12 +60,41 @@ export const useAppStore = create<AppState>((set) => ({
   isDarkMode: false,
   openTabs: [Tab.DASHBOARD],
   activeTab: Tab.DASHBOARD,
+  posTerminalOpen: false, // Keep for backwards compatibility
+  posState: 'closed',
+  posBillState: {
+    items: [{ name: '', quantity: '', rate: '', amount: 0 }],
+    partyName: 'Counter Customer',
+    patientName: '',
+    customerMobile: '',
+    doctorName: '',
+    abhaNo: '',
+    salesLedger: 'Sales',
+    narration: '',
+    voucherType: 'Sales',
+    date: new Date().toISOString().split('T')[0]
+  },
   notifications: [],
 
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setActiveModule: (module) => set({ activeModule: module }),
   toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+  setPosTerminalOpen: (open) => set({ posTerminalOpen: open, posState: open ? 'full' : 'closed' }), // Map old prop to new state
+  setPosState: (posState) => set({ posState, posTerminalOpen: posState !== 'closed' }),
+  setPosBillState: (billState) => set((state) => ({ posBillState: { ...state.posBillState, ...billState } })),
+  clearPosBillState: () => set({ posBillState: {
+    items: [{ name: '', quantity: '', rate: '', amount: 0 }],
+    partyName: 'Counter Customer',
+    patientName: '',
+    customerMobile: '',
+    doctorName: '',
+    abhaNo: '',
+    salesLedger: 'Sales',
+    narration: '',
+    voucherType: 'Sales',
+    date: new Date().toISOString().split('T')[0]
+  }}),
 
   addTab: (tab) => set((state) => ({
     openTabs: state.openTabs.includes(tab) ? state.openTabs : [...state.openTabs, tab],
