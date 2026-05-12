@@ -635,12 +635,12 @@ router.post('/:id/receive', async (req, res) => {
       const batchMrp = item.mrp || productDefaults.mrp || 0;
       const batchSellingRate = item.selling_rate || productDefaults.selling_rate || 0;
 
-      // Add to/Update batches using canonical column names (stock instead of quantity)
+      // Add to/Update batches using canonical column names (batch_no and quantity)
       const { rows: batchRows } = await client.query(
-        `INSERT INTO batches (id, product_id, batch_number, expiry_date, purchase_rate, stock, mrp, selling_rate)
+        `INSERT INTO batches (id, product_id, batch_no, expiry_date, purchase_rate, quantity, mrp, selling_rate)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (product_id, batch_number) 
-         DO UPDATE SET stock = batches.stock + EXCLUDED.stock
+         ON CONFLICT (product_id, batch_no) 
+         DO UPDATE SET quantity = batches.quantity + EXCLUDED.quantity
          RETURNING id, godown_id`,
         [uuidv4(), item.product_id, item.batch_no, item.expiry_date, item.cost, item.received_qty, batchMrp, batchSellingRate]
       );

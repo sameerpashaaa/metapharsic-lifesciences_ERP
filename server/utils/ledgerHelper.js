@@ -112,8 +112,8 @@ async function postToStockLedger(client, {
         // 3. Update batches table
         if (batchId) {
             const updateQuery = movementType === 'IN' 
-                ? 'UPDATE batches SET stock = stock + $1 WHERE id = $2'
-                : 'UPDATE batches SET stock = stock - $1 WHERE id = $2 AND stock >= $1';
+                ? 'UPDATE batches SET quantity = quantity + $1 WHERE id = $2'
+                : 'UPDATE batches SET quantity = quantity - $1 WHERE id = $2 AND quantity >= $1';
             
             const batchRes = await client.query(updateQuery, [quantity, batchId]);
             

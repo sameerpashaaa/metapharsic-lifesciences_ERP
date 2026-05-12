@@ -92,7 +92,7 @@ router.get('/invoices/:id', async (req, res) => {
              FROM sales_invoice_items sii
              LEFT JOIN products p ON sii.product_id = p.id
              LEFT JOIN batches b ON sii.batch_id = b.id
-             WHERE sii.invoice_id = $1 OR sii.sales_invoice_id = $1`,
+             WHERE sii.invoice_id = $1`,
             [invoice.id]
         );
 
@@ -147,6 +147,19 @@ router.post('/invoices', async (req, res) => {
         }
 
         await client.query('BEGIN');
+        
+        // DEBUG: Intercept query method to find out exactly which one causes the "stock" error
+        const originalQuery = client.query.bind(client);
+        client.query = async function(...args) {
+            console.log(`[POS DB DEBUG] Executing SQL: ${args[0]}`);
+            try {
+                return await originalQuery(...args);
+            } catch (e) {
+                console.error(`[POS DB DEBUG] FAILED SQL: ${args[0]}`);
+                console.error(`[POS DB DEBUG] ERROR DETAIL:`, e);
+                throw e;
+            }
+        };
 
         const companyId = req.user?.companyId || 1;
         const userId = req.user?.userId || req.user?.id;
@@ -314,7 +327,7 @@ router.post('/returns', async (req, res) => {
 
         // 2. Process Items & Revert Stock
         for (const item of items) {
-            await client.query("UPDATE batches SET stock = stock + $1 WHERE id = $2", [item.quantity, item.batch_id]);
+            await client.query("UPDATE batches SET quantity = quantity + $1 WHERE id = $2", [item.quantity, item.batch_id]);
             
             await ledgerHelper.postToStockLedger(client, {
                 companyId,
@@ -401,7 +414,7 @@ router.delete('/invoices/:id', async (req, res) => {
         // 3. Revert Stock
         const { rows: items } = await client.query("SELECT * FROM sales_invoice_items WHERE invoice_id = $1", [req.params.id]);
         for (const item of items) {
-            await client.query("UPDATE batches SET stock = stock + $1 WHERE id = $2", [item.quantity, item.batch_id]);
+            await client.query("UPDATE batches SET quantity = quantity + $1 WHERE id = $2", [item.quantity, item.batch_id]);
         }
 
         // 4. Clear Ledger Entries using helper

@@ -39,9 +39,9 @@ const POSTerminalModal: React.FC<POSTerminalModalProps> = ({
         width: '300px',
         borderRadius: '14px',
         overflow: 'hidden',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-        background: '#FFFFFF',
-        border: '1px solid #E0E0E0',
+        boxShadow: 'none',
+        background: 'transparent',
+        border: 'none',
         animation: 'flyIn 0.3s ease-in-out'
       } : {
         width: '100%',

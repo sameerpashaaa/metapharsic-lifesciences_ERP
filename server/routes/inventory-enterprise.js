@@ -26,7 +26,7 @@ router.get('/global-summary', verifyTokenMiddleware, async (req, res) => {
     try {
         const branchCount = await db.query('SELECT COUNT(*) FROM branches');
         const skuCount = await db.query('SELECT COUNT(*) FROM products WHERE deleted_at IS NULL');
-        const totalStock = await db.query('SELECT SUM(stock) as total FROM batches');
+        const totalStock = await db.query('SELECT SUM(quantity) as total FROM batches');
         
         res.json({
             success: true,

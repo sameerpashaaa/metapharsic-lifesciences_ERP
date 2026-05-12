@@ -91,7 +91,7 @@ router.post('/', verifyTokenMiddleware, verifyRoleMiddleware(['ADMIN', 'PHARMACI
 
             // Update Stock
             await client.query(
-                `UPDATE batches SET stock = stock - $1 WHERE id = $2`,
+                `UPDATE batches SET quantity = quantity - $1 WHERE id = $2`,
                 [item.quantity, item.batchId]
             );
 
