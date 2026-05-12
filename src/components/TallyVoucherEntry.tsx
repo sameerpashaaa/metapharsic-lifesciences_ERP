@@ -40,22 +40,22 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
   const { containerRef, mode } = usePOSLayout();
   const isCompact = mode === 'compact';
   const { company } = useCompany();
-  const { posState, setPosState } = useAppStore();
- const [voucherType, setVoucherType] = useState(initialType);
- const [invoiceNo, setInvoiceNo] = useState('1');
- const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
- const [partyName, setPartyName] = useState('Counter Customer');
- const [patientName, setPatientName] = useState('');
- const [patientAddress, setPatientAddress] = useState('');
- const [customerMobile, setCustomerMobile] = useState('');
- const [patientAge, setPatientAge] = useState('');
- const [patientDob, setPatientDob] = useState('');
- const [patientGender, setPatientGender] = useState('Male');
+  const { posState, setPosState, posBillState, setPosBillState } = useAppStore();
+  const [voucherType, setVoucherType] = useState(posBillState.voucherType || initialType);
+  const [invoiceNo, setInvoiceNo] = useState('1');
+  const [date, setDate] = useState(posBillState.date || new Date().toISOString().split('T')[0]);
+  const [partyName, setPartyName] = useState(posBillState.partyName || 'Counter Customer');
+  const [patientName, setPatientName] = useState(posBillState.patientName || '');
+  const [patientAddress, setPatientAddress] = useState('');
+  const [customerMobile, setCustomerMobile] = useState(posBillState.customerMobile || '');
+  const [patientAge, setPatientAge] = useState('');
+  const [patientDob, setPatientDob] = useState('');
+  const [patientGender, setPatientGender] = useState('Male');
   const [patientDetailsCollapsed, setPatientDetailsCollapsed] = useState(true);
- const [abhaNo, setAbhaNo] = useState('');
- const [abhaAddress, setAbhaAddress] = useState('');
- const [doctorName, setDoctorName] = useState('');
- const [salesLedger, setSalesLedger] = useState('Sales');
+  const [abhaNo, setAbhaNo] = useState(posBillState.abhaNo || '');
+  const [abhaAddress, setAbhaAddress] = useState('');
+  const [doctorName, setDoctorName] = useState(posBillState.doctorName || '');
+  const [salesLedger, setSalesLedger] = useState(posBillState.salesLedger || 'Sales');
  
   // Side Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -138,10 +138,31 @@ const TallyVoucherEntry: React.FC<VoucherEntryProps> = ({ initialType = 'Sales',
         hsn: item.hsn || ''
       }));
     }
+    // Restore from global store if available
+    if (posBillState && posBillState.items && posBillState.items.length > 0 && posBillState.items[0].name !== '') {
+      return posBillState.items;
+    }
     return [{ name: '', quantity: '', rate: '', amount: 0, stockAvailable: 0, batchNumber: '', expiryDate: '', mrp: 0, gstPercent: 0, discPercent: '0.00' }];
   });
 
-  const [narration, setNarration] = useState('');
+  const [narration, setNarration] = useState(posBillState.narration || '');
+
+  // Sync to global store for persistence across mode switches (mini/side/full)
+  useEffect(() => {
+    setPosBillState({
+      items,
+      partyName,
+      patientName,
+      customerMobile,
+      doctorName,
+      abhaNo,
+      salesLedger,
+      narration,
+      voucherType,
+      date
+    });
+  }, [items, partyName, patientName, customerMobile, doctorName, abhaNo, salesLedger, narration, voucherType, date, setPosBillState]);
+
   const [loading, setLoading] = useState(false);
   const [scanValue, setScanValue] = useState('');
   const [showDropdown, setShowDropdown] = useState<{ type: 'party' | 'item', index?: number } | null>(null);

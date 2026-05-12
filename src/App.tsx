@@ -508,33 +508,21 @@ const AppContent: React.FC = () => {
             </main>
           </div>
           
-          {/* RIGHT: POS Panel Content Container */}
+          {/* RIGHT: POS Panel Content Container - Persistent to prevent state loss on mode switch */}
           <div className="flex flex-col h-full bg-page relative z-20">
-            {(posState === 'full' || posState === 'side') && (
-              <POSTerminalModal 
-                isOpen={true} 
-                onClose={() => setPosState('closed')} 
-                initialItems={[]}
-              />
-            )}
+            <POSTerminalModal 
+              isOpen={posState !== 'closed'} 
+              onClose={() => setPosState('closed')} 
+              initialItems={[]}
+            />
           </div>
         </div>
       </div>
-
-      {/* FLOATING MINI CARD */}
-      {posState === 'mini' && (
-        <POSTerminalModal 
-          isOpen={true} 
-          onClose={() => setPosState('closed')} 
-          initialItems={[]}
-        />
-      )}
 
       <KeyboardShortcutsHelp
         isOpen={showShortcutsHelp}
         onClose={() => setShowShortcutsHelp(false)}
       />
-    </div>
     </div>
   );
 };
