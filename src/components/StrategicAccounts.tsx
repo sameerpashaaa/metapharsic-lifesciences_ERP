@@ -22,7 +22,7 @@ import { DayBook } from './DayBook';
 import { GeneralLedger } from './GeneralLedger';
 import { FinancialStatements } from './FinancialStatements';
 import { JournalVoucherManager } from './JournalVoucherManager';
-import { ItemMaster } from './ItemMaster';
+import InventoryHub from './InventoryHub';
 import { GodownMaster } from './GodownMaster';
 import { BomMaster } from './BomMaster';
 import { InventoryVouchers } from './InventoryVouchers';
@@ -136,7 +136,7 @@ const StrategicAccounts: React.FC<StrategicAccountsProps> = ({ onNavigate }) => 
  { id: 'FINANCIAL_SUMMARY', label: 'Financial Dashboard', icon: <LayoutDashboard size={18}/>, onClick: () => openTab('FINANCIAL_SUMMARY', 'Financial Dashboard'), isActive: activeTab === 'FINANCIAL_SUMMARY', group: 'Overview' },
  { id: 'DAY_BOOK', label: 'Day Book', icon: <BookOpen size={18}/>, onClick: () => openTab('DAY_BOOK', 'Day Book'), isActive: activeTab === 'DAY_BOOK', group: 'Overview' },
  { id: 'PARTIES', label: 'Chart of Accounts', icon: <User size={18}/>, onClick: () => openTab('PARTIES', 'Chart of Accounts'), isActive: activeTab === 'PARTIES', group: 'Masters' },
- { id: 'ITEM_MASTER', label: 'Item Masters', icon: <Package size={18}/>, onClick: () => openTab('ITEM_MASTER', 'Item Masters'), isActive: activeTab === 'ITEM_MASTER', group: 'Masters' },
+ { id: 'INVENTORY_HUB', label: 'Inventory Hub', icon: <Package size={18}/>, onClick: () => openTab('INVENTORY_HUB', 'Inventory Hub'), isActive: activeTab === 'INVENTORY_HUB', group: 'Masters' },
  { id: 'JOURNAL_VOUCHERS', label: 'Journal Entry', icon: <FileText size={18}/>, onClick: () => openTab('JOURNAL_VOUCHERS', 'Journal Entry'), isActive: activeTab === 'JOURNAL_VOUCHERS', group: 'Transactions' },
  { id: 'INVENTORY_VOUCHERS', label: 'Inventory Vouchers', icon: <Package size={18}/>, onClick: () => openTab('INVENTORY_VOUCHERS', 'Inventory Vouchers'), isActive: activeTab === 'INVENTORY_VOUCHERS', group: 'Transactions' },
  { id: 'GENERAL_LEDGER', label: 'General Ledger', icon: <FileText size={18}/>, onClick: () => openTab('GENERAL_LEDGER', 'General Ledger'), isActive: activeTab === 'GENERAL_LEDGER', group: 'Reports' },
@@ -244,7 +244,7 @@ const StrategicAccounts: React.FC<StrategicAccountsProps> = ({ onNavigate }) => 
  );
  
  case 'DAY_BOOK': return <DayBook />;
- case 'ITEM_MASTER': return <ItemMaster />;
+ case 'INVENTORY_HUB': return <InventoryHub />;
  case 'GODOWN_MASTER': return <GodownMaster />;
  case 'BOM_MASTER': return <BomMaster />;
  case 'JOURNAL_VOUCHERS': return <JournalVoucherManager />;

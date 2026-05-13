@@ -1,4 +1,4 @@
-﻿
+
 import React from 'react';
 import { 
  LayoutDashboard, ShoppingCart, Package, Truck, FileBarChart, Users, Settings, 
@@ -32,12 +32,12 @@ const MENU_STRUCTURE = [
  { id: Tab.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
  { id: Tab.POS, label: 'POS / Billing', icon: <ShoppingCart size={18} /> },
  { id: 'INVOICE_HISTORY' as any, label: 'Sales Register', icon: <History size={18} /> },
- { id: 'PRODUCT_CATALOG' as any, label: 'Item / Stock Master', icon: <Package size={18} /> },
+ { id: Tab.INVENTORY_HUB, label: 'Inventory Hub', icon: <Package size={18} /> },
  { id: 'CUSTOMER_LIST' as any, label: 'Customer Database', icon: <Users size={18} /> },
  { id: 'VOUCHER_TYPE_SETUP' as any, label: 'Voucher Setup', icon: <Settings size={18} /> },
- { id: Tab.INVENTORY, label: 'Inventory', icon: <Package size={18} /> },
+
  { id: Tab.PURCHASE, label: 'Purchase', icon: <Truck size={18} /> },
- { id: Tab.INVENTORY_ANALYTICS, label: 'Inventory Intelligence', icon: <TrendingUp size={18} /> },
+
  { id: Tab.INTELLIGENCE_DASHBOARD, label: 'Intelligence Center', icon: <Sparkles size={18} className="text-indigo-500" /> },
  { id: Tab.ACCOUNTS, label: 'Accounts', icon: <CreditCard size={18} /> },
  { id: Tab.LEDGER_CREATION, label: 'Ledger Creation', icon: <Plus size={18} /> },
@@ -133,17 +133,11 @@ const Sidebar: React.FC<SidebarProps> = ({
      if (propSetActiveTab) propSetActiveTab(Tab.POS);
      storeSetActiveTab(Tab.POS);
      setPosInternalTab(tab);
-     setPosTerminalOpen(true);
      return;
    }
 
    if (propSetActiveTab) propSetActiveTab(tab);
    storeSetActiveTab(tab);
-   
-   // Auto-open terminal when navigating to POS tab for multitasking
-   if (tab === Tab.POS) {
-     setPosTerminalOpen(true);
-   }
  };
 
  return (

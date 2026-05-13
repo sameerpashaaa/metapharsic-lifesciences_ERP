@@ -250,6 +250,7 @@ interface DataTableProps<T> {
  loading?: boolean;
  emptyMessage?: string;
  onRowClick?: (row: T) => void;
+ renderSubRow?: (row: T) => ReactNode;
 }
 
 export const DataTable: React.FC<DataTableProps<any>> = ({
@@ -257,7 +258,8 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  data = [],
  loading = false,
  emptyMessage = 'No records found in the database',
- onRowClick
+ onRowClick,
+ renderSubRow
 }) => {
  return (
  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -302,8 +304,8 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  </tr>
  ) : (
  data.map((row, idx) => (
+ <React.Fragment key={idx}>
  <tr
- key={idx}
  onClick={() => onRowClick?.(row)}
  className={`group transition-all border-b border-slate-50 last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-slate-50' : 'hover:bg-slate-50/30'}`}
  >
@@ -318,6 +320,8 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  </td>
  ))}
  </tr>
+ {renderSubRow && renderSubRow(row)}
+ </React.Fragment>
  ))
  )}
  </tbody>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import StrategicPOS from './components/StrategicPOS';
-import Inventory from './components/Inventory';
+import InventoryHub from './components/InventoryHub';
 import Manufacturing from './components/Manufacturing';
 import PurchaseEnhanced from './components/PurchaseEnhanced';
 import Reports from './components/Reports';
@@ -25,10 +25,7 @@ import RnD from './components/RnD';
 import OMS from './components/OMS'; // Imported OMS component
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import MenuOptions from './components/MenuOptions';
-import { ItemMaster } from './components/ItemMaster';
-import { InventoryVouchers } from './components/InventoryVouchers';
-import MultiBranchDashboard from './components/MultiBranchDashboard';
-import InventoryAnalytics from './components/InventoryAnalytics';
+
 import LedgerCreation from './components/LedgerCreation';
 
 import POSTerminalModal from './components/POSTerminalModal';
@@ -224,15 +221,15 @@ const AppContent: React.FC = () => {
 
   // Inventory handlers
   const handleStockStatus = () => {
-    setActiveTab(Tab.STOCK_SUMMARY);
+    setActiveTab(Tab.INVENTORY_HUB);
   };
 
   const handleStockSalesAnalysis = () => {
-    setActiveTab(Tab.INVENTORY_ANALYTICS);
+    setActiveTab(Tab.INVENTORY_HUB);
   };
 
   const handleReorder = () => {
-    setActiveTab(Tab.INVENTORY);
+    setActiveTab(Tab.INVENTORY_HUB);
   };
 
   // Sales handlers
@@ -274,14 +271,12 @@ const AppContent: React.FC = () => {
       // Core
       case Tab.DASHBOARD: return <Dashboard onNavigate={setActiveTab} />;
       case Tab.POS: return <StrategicPOS />;
-      case Tab.INVENTORY: return <ItemMaster />;
-      case Tab.INVENTORY_ANALYTICS: return <InventoryAnalytics />;
+      case Tab.INVENTORY_HUB: return <InventoryHub />;
       case Tab.INVENTORY_VOUCHERS: return <InventoryVouchers />;
       case Tab.TALLY_VOUCHER_ENTRY: return <Accounts />;
       case Tab.FINANCIAL_STATEMENTS: return <Reports />;
       case Tab.GENERAL_LEDGER: return <Accounts />;
       case Tab.STRATEGIC_ACCOUNTS: return <Accounts />;
-      case Tab.STOCK_SUMMARY: return <Inventory />;
       case Tab.PURCHASE: return <PurchaseEnhanced />;
       case Tab.ACCOUNTS: return <Accounts />;
 
@@ -326,14 +321,13 @@ const AppContent: React.FC = () => {
       [Tab.CRM]: 'CRM & Leads',
       [Tab.QC]: 'Quality Control Lab',
       [Tab.PCD]: 'PCD Network',
-      [Tab.INVENTORY]: 'Inventory Master',
+      [Tab.INVENTORY_HUB]: 'Inventory Hub',
       [Tab.MANUFACTURING]: 'Production Floor',
       [Tab.EMPLOYEES]: 'HR & Field Force',
       [Tab.DOCUMENTS]: 'Document Management',
       [Tab.ASSETS]: 'Asset Management',
       [Tab.R_AND_D]: 'Research & Development',
       [Tab.OMS]: 'Order Management',
-      [Tab.INVENTORY_ANALYTICS]: 'Inventory Intelligence',
       [Tab.INTELLIGENCE_DASHBOARD]: 'Intelligence Dashboard (v3)',
       [Tab.LEDGER_CREATION]: 'Ledger Creation (Tally ERP)',
     };
@@ -344,7 +338,7 @@ const AppContent: React.FC = () => {
     const shortcuts: Record<Tab, string> = {
       [Tab.DASHBOARD]: 'D',
       [Tab.POS]: 'P',
-      [Tab.INVENTORY]: 'I',
+      [Tab.INVENTORY_HUB]: 'I',
       [Tab.PURCHASE]: 'U',
       [Tab.ACCOUNTS]: 'A',
       [Tab.INVENTORY_VOUCHERS]: 'V',
@@ -352,7 +346,6 @@ const AppContent: React.FC = () => {
       [Tab.FINANCIAL_STATEMENTS]: 'F',
       [Tab.GENERAL_LEDGER]: 'Z',
       [Tab.STRATEGIC_ACCOUNTS]: 'X',
-      [Tab.STOCK_SUMMARY]: 'W',
       [Tab.PCD]: 'C',
       [Tab.CRM]: 'R',
       [Tab.OMS]: 'O',
@@ -370,7 +363,6 @@ const AppContent: React.FC = () => {
       [Tab.BUDGET]: 'B',
       [Tab.SETTINGS]: ',',
       [Tab.MULTI_BRANCH]: 'J',
-      [Tab.INVENTORY_ANALYTICS]: 'G',
       [Tab.INTELLIGENCE_DASHBOARD]: 'D',
       [Tab.LEDGER_CREATION]: 'L'
     };
@@ -425,13 +417,12 @@ const AppContent: React.FC = () => {
                 <button 
                   onClick={() => {
                     setActiveTab(Tab.POS);
-                    setPosTerminalOpen(true);
                   }} 
                   className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.POS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
                 >
                   POS
                 </button>
-                <button onClick={() => setActiveTab(Tab.INVENTORY)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.INVENTORY ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Inventory</button>
+                <button onClick={() => setActiveTab(Tab.INVENTORY_HUB)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.INVENTORY_HUB ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Inventory</button>
                 <button onClick={() => setActiveTab(Tab.ACCOUNTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.ACCOUNTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Accounts</button>
                 <button onClick={() => setActiveTab(Tab.REPORTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.REPORTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Reports</button>
               </div>

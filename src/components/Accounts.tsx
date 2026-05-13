@@ -1,4 +1,4 @@
-﻿/**
+/**
  * REFACTORED ACCOUNTS COMPONENT
  * Uses EnterpriseLayout + useDataFetch patterns
  * Standardized for Metapharsic ERP Unified Design System
@@ -23,7 +23,7 @@ import { DayBook } from './DayBook';
 import { GeneralLedger } from './GeneralLedger';
 import { FinancialStatements } from './FinancialStatements';
 import { JournalVoucherManager } from './JournalVoucherManager';
-import { ItemMaster } from './ItemMaster';
+import InventoryHub from './InventoryHub';
 import { GodownMaster } from './GodownMaster';
 import { BomMaster } from './BomMaster';
 import { InventoryVouchers } from './InventoryVouchers';
@@ -143,7 +143,7 @@ const Accounts: React.FC = () => {
  { id: 'DAY_BOOK', label: 'Day Book', icon: <BookOpen size={18}/>, onClick: () => openTab('DAY_BOOK', 'Day Book'), isActive: activeTab === 'DAY_BOOK', group: 'Overview' },
  
  { id: 'PARTIES', label: 'Chart of Accounts', icon: <User size={18}/>, onClick: () => openTab('PARTIES', 'Chart of Accounts'), isActive: activeTab === 'PARTIES', group: 'Masters' },
- { id: 'ITEM_MASTER', label: 'Item Masters', icon: <Package size={18}/>, onClick: () => openTab('ITEM_MASTER', 'Item Masters'), isActive: activeTab === 'ITEM_MASTER', group: 'Masters' },
+ { id: 'INVENTORY_HUB', label: 'Inventory Hub', icon: <Package size={18}/>, onClick: () => openTab('INVENTORY_HUB', 'Inventory Hub'), isActive: activeTab === 'INVENTORY_HUB', group: 'Masters' },
  { id: 'GODOWN_MASTER', label: 'Godown Master', icon: <Package size={18}/>, onClick: () => openTab('GODOWN_MASTER', 'Godown Master'), isActive: activeTab === 'GODOWN_MASTER', group: 'Masters' },
  { id: 'BOM_MASTER', label: 'Bill of Materials', icon: <Grid size={18}/>, onClick: () => openTab('BOM_MASTER', 'Bill of Materials'), isActive: activeTab === 'BOM_MASTER', group: 'Masters' },
  
@@ -274,7 +274,7 @@ const Accounts: React.FC = () => {
  );
  
  case 'DAY_BOOK': return <DayBook />;
- case 'ITEM_MASTER': return <ItemMaster />;
+ case 'INVENTORY_HUB': return <InventoryHub />;
  case 'GODOWN_MASTER': return <GodownMaster />;
  case 'BOM_MASTER': return <BomMaster />;
  case 'JOURNAL_VOUCHERS': return <JournalVoucherManager />;
