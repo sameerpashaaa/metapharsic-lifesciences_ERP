@@ -1,13 +1,82 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+html {
+  zoom: 0.8;
+  min-height: 125vh; /* 100vh / 0.8 */
+}
+
+body {
+  min-height: 100%;
+}
+
+/* --- Viewport Sizing Compensation for zoom: 0.8 --- */
+
+/* Full-screen Overrides */
+.h-screen, .h-\[100vh\], .h-\[100dvh\] {
+  height: 125dvh !important;
+}
+.min-h-screen {
+  min-height: 125vh !important;
+}
+.w-screen {
+  width: 125vw !important;
+}
+
+/* Proportional Heights */
+.h-\[80vh\] {
+  height: 100vh !important; /* 80% * 1.25 */
+}
+.h-\[70vh\] {
+  height: 87.5vh !important; /* 70% * 1.25 */
+}
+
+/* Proportional Max Heights */
+.max-h-\[95vh\] {
+  max-height: 118.75vh !important; /* 95% * 1.25 */
+}
+.max-h-\[90vh\] {
+  max-height: 112.5vh !important; /* 90% * 1.25 */
+}
+.max-h-\[85vh\] {
+  max-height: 106.25vh !important; /* 85% * 1.25 */
+}
+.max-h-\[80vh\] {
+  max-height: 100vh !important; /* 80% * 1.25 */
+}
+.max-h-\[60vh\] {
+  max-height: 75vh !important; /* 60% * 1.25 */
+}
+
+/* Viewport Calc Expressions */
+.h-\[calc\(100vh-2rem\)\] {
+  height: calc(125vh - 2rem) !important;
+}
+.h-\[calc\(100vh-12rem\)\] {
+  height: calc(125vh - 12rem) !important;
+}
+.h-\[calc\(100vh-150px\)\] {
+  height: calc(125vh - 150px) !important;
+}
+.h-\[calc\(100vh-180px\)\] {
+  height: calc(125vh - 180px) !important;
+}
+.h-\[calc\(100vh-400px\)\] {
+  height: calc(125vh - 400px) !important;
+}
+
+/* Specific Min/Max Bounds */
+.max-h-\[min\(95vh\,820px\)\] {
+  max-height: min(118.75vh, 820px) !important;
+}
+
 :root {
   --color-primary: #111111;
   --color-secondary: #888888;
   --color-accent: #4CAF72;
   --color-background: #F5F5F5;
   --color-text: #111111;
-  
+
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
@@ -19,14 +88,31 @@
 
 /* Additional CSS for animations and utilities */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
 }
 
 .animate-fadeIn {
@@ -73,9 +159,17 @@
 
 /* Floating animation */
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-5px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 .animate-float {
@@ -94,7 +188,7 @@
   .no-print {
     display: none !important;
   }
-  
+
   body {
     background: white !important;
     color: black !important;
