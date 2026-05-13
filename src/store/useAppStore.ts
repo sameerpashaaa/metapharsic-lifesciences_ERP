@@ -16,6 +16,7 @@ interface AppState {
   // Global POS Terminal
   posTerminalOpen: boolean; // Keep for backwards compatibility
   posState: POSStateMode;
+  posInternalTab: string | null;
   posBillState: {
     items: any[];
     partyName: string;
@@ -43,6 +44,7 @@ interface AppState {
   toggleDarkMode: () => void;
   setPosTerminalOpen: (open: boolean) => void; // Keep for backwards compatibility
   setPosState: (state: POSStateMode) => void;
+  setPosInternalTab: (tabId: string | null) => void;
   setPosBillState: (billState: Partial<AppState['posBillState']>) => void;
   clearPosBillState: () => void;
   
@@ -62,6 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
   activeTab: Tab.DASHBOARD,
   posTerminalOpen: false, // Keep for backwards compatibility
   posState: 'closed',
+  posInternalTab: null,
   posBillState: {
     items: [{ name: '', quantity: '', rate: '', amount: 0 }],
     partyName: 'Counter Customer',
@@ -82,6 +85,7 @@ export const useAppStore = create<AppState>((set) => ({
   toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
   setPosTerminalOpen: (open) => set({ posTerminalOpen: open, posState: open ? 'full' : 'closed' }), // Map old prop to new state
   setPosState: (posState) => set({ posState, posTerminalOpen: posState !== 'closed' }),
+  setPosInternalTab: (tabId) => set({ posInternalTab: tabId }),
   setPosBillState: (billState) => set((state) => ({ posBillState: { ...state.posBillState, ...billState } })),
   clearPosBillState: () => set({ posBillState: {
     items: [{ name: '', quantity: '', rate: '', amount: 0 }],

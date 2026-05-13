@@ -518,13 +518,14 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <KeyboardShortcutsHelp
-        isOpen={showShortcutsHelp}
-        onClose={() => setShowShortcutsHelp(false)}
-      />
     </div>
-  );
+
+    <KeyboardShortcutsHelp
+      isOpen={showShortcutsHelp}
+      onClose={() => setShowShortcutsHelp(false)}
+    />
+  </div>
+);
 };
 
 const App: React.FC = () => {

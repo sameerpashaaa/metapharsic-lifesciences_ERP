@@ -26,4 +26,7 @@ echo Frontend App:     http://localhost:3005
 echo ---------------------------------------------------
 echo.
 
+:: Open browser automatically after a short delay
+start /b "" cmd /c "timeout /t 5 >nul && start http://localhost:3005"
+
 npm run start-all

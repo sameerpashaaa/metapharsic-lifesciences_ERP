@@ -53,7 +53,7 @@ import { useAppStore } from '../store/useAppStore';
 const StrategicPOS: React.FC = () => {
   const { hasPermission } = useAuth();
   const { addNotification } = useNotifications();
-  const { posTerminalOpen, setPosTerminalOpen } = useAppStore();
+  const { posTerminalOpen, setPosTerminalOpen, posInternalTab, setPosInternalTab } = useAppStore();
 
   // --- State: Tabs & Navigation ---
   // ... rest of the component
@@ -70,6 +70,24 @@ const StrategicPOS: React.FC = () => {
     setActiveTab(id);
   };
 
+  // Listen for internal tab requests from main sidebar
+  useEffect(() => {
+    if (posInternalTab) {
+      const tabMap: Record<string, string> = {
+        'INVOICE_HISTORY': 'Sales History',
+        'PRODUCT_CATALOG': 'Item Master',
+        'CUSTOMER_LIST': 'Customers',
+        'VOUCHER_TYPE_SETUP': 'Voucher Types'
+      };
+      
+      if (tabMap[posInternalTab]) {
+        openTab(posInternalTab, tabMap[posInternalTab]);
+        // Clear the request after handling
+        setPosInternalTab(null);
+      }
+    }
+  }, [posInternalTab, setPosInternalTab]);
+
   const closeTab = (id: string) => {
     const newTabs = openTabs.filter(t => t.id !== id);
     setOpenTabs(newTabs);
@@ -84,20 +102,7 @@ const StrategicPOS: React.FC = () => {
   };
 
   // --- Sidebar Items Configuration ---
-  const sidebarItems = [
-    { id: 'POS_DASHBOARD', label: 'POS Dashboard', icon: <LayoutDashboard size={14}/>, onClick: () => openTab('POS_DASHBOARD', 'POS Terminal'), isActive: activeTab === 'POS_DASHBOARD', group: 'Operations' },
-    { id: 'VOUCHER_ENTRY_Contra', label: 'F4: Contra', icon: <RefreshCcw size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Contra', 'Contra Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Contra', group: 'Accounting' },
-    { id: 'VOUCHER_ENTRY_Payment', label: 'F5: Payment', icon: <ArrowUpRight size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Payment', 'Payment Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Payment', group: 'Accounting' },
-    { id: 'VOUCHER_ENTRY_Receipt', label: 'F6: Receipt', icon: <ArrowDownLeft size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Receipt', 'Receipt Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Receipt', group: 'Accounting' },
-    { id: 'VOUCHER_ENTRY_Journal', label: 'F7: Journal', icon: <FileText size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Journal', 'Journal Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Journal', group: 'Accounting' },
-    { id: 'NEW_INVOICE', label: 'F8: Sales', icon: <Plus size={14}/>, onClick: () => openTab('NEW_INVOICE', 'Sales Voucher'), isActive: activeTab === 'NEW_INVOICE', group: 'Accounting' },
-    { id: 'VOUCHER_ENTRY_Purchase', label: 'F9: Purchase', icon: <ShoppingBag size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Purchase', 'Purchase Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Purchase', group: 'Accounting' },
-    { id: 'VOUCHER_ENTRY_Return', label: 'F10: Returns', icon: <RefreshCcw size={14}/>, onClick: () => openTab('VOUCHER_ENTRY_Return', 'Return Voucher'), isActive: activeTab === 'VOUCHER_ENTRY_Return', group: 'Accounting' },
-    { id: 'INVOICE_HISTORY', label: 'Sales Register', icon: <History size={14}/>, onClick: () => openTab('INVOICE_HISTORY', 'Sales History'), isActive: activeTab === 'INVOICE_HISTORY', group: 'Reports' },
-    { id: 'PRODUCT_CATALOG', label: 'Item/Stock Master', icon: <Package size={14}/>, onClick: () => openTab('PRODUCT_CATALOG', 'Item Master'), isActive: activeTab === 'PRODUCT_CATALOG', group: 'Inventory' },
-    { id: 'CUSTOMER_LIST', label: 'Customer Database', icon: <Users size={14}/>, onClick: () => openTab('CUSTOMER_LIST', 'Customers'), isActive: activeTab === 'CUSTOMER_LIST', group: 'CRM' },
-    { id: 'VOUCHER_TYPE_SETUP', label: 'Voucher Setup', icon: <Settings size={14}/>, onClick: () => openTab('VOUCHER_TYPE_SETUP', 'Voucher Types'), isActive: activeTab === 'VOUCHER_TYPE_SETUP', group: 'Setup' },
-  ];
+  const sidebarItems: any[] = [];
 
   // --- Top Ribbon Actions ---
   const topActions = [
@@ -1323,6 +1328,7 @@ const StrategicPOS: React.FC = () => {
       title="Strategic Point of Sale"
       subtitle="Enterprise Accounting & Billing Terminal"
       sidebarItems={sidebarItems}
+      showSidebar={false}
       tabs={openTabs.map(t => ({
         ...t,
         isActive: activeTab === t.id,

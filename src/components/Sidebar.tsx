@@ -3,7 +3,8 @@ import React from 'react';
 import { 
  LayoutDashboard, ShoppingCart, Package, Truck, FileBarChart, Users, Settings, 
  ShieldCheck, CreditCard, LogOut, Map, Factory, Briefcase, 
- UserPlus, ClipboardCheck, Activity, FileText, Database, Layers, TrendingUp, Globe, Plus, Sparkles
+ UserPlus, ClipboardCheck, Activity, FileText, Database, Layers, TrendingUp, Globe, Plus, Sparkles,
+ History
 } from 'lucide-react';
 import { Tab } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +31,10 @@ const MENU_STRUCTURE = [
  items: [
  { id: Tab.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
  { id: Tab.POS, label: 'POS / Billing', icon: <ShoppingCart size={18} /> },
+ { id: 'INVOICE_HISTORY' as any, label: 'Sales Register', icon: <History size={18} /> },
+ { id: 'PRODUCT_CATALOG' as any, label: 'Item / Stock Master', icon: <Package size={18} /> },
+ { id: 'CUSTOMER_LIST' as any, label: 'Customer Database', icon: <Users size={18} /> },
+ { id: 'VOUCHER_TYPE_SETUP' as any, label: 'Voucher Setup', icon: <Settings size={18} /> },
  { id: Tab.INVENTORY, label: 'Inventory', icon: <Package size={18} /> },
  { id: Tab.PURCHASE, label: 'Purchase', icon: <Truck size={18} /> },
  { id: Tab.INVENTORY_ANALYTICS, label: 'Inventory Intelligence', icon: <TrendingUp size={18} /> },
@@ -112,6 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({
  activeTab: storeActiveTab, 
  setActiveTab: storeSetActiveTab,
  setPosTerminalOpen,
+ setPosInternalTab,
  posState,
  posBillState
  } = useAppStore();
@@ -119,14 +125,25 @@ const Sidebar: React.FC<SidebarProps> = ({
  // Use props if provided, otherwise fallback to store
  const isOpen = propIsOpen !== undefined ? propIsOpen : storeIsOpen;
  const activeTab = propActiveTab !== undefined ? propActiveTab : (storeActiveTab as Tab);
- const setActiveTab = (tab: Tab) => {
- if (propSetActiveTab) propSetActiveTab(tab);
- storeSetActiveTab(tab);
  
- // Auto-open terminal when navigating to POS tab for multitasking
- if (tab === Tab.POS) {
- setPosTerminalOpen(true);
- }
+ const setActiveTab = (tab: any) => {
+   // Handle POS internal tabs
+   const posInternalTabs = ['INVOICE_HISTORY', 'PRODUCT_CATALOG', 'CUSTOMER_LIST', 'VOUCHER_TYPE_SETUP'];
+   if (posInternalTabs.includes(tab)) {
+     if (propSetActiveTab) propSetActiveTab(Tab.POS);
+     storeSetActiveTab(Tab.POS);
+     setPosInternalTab(tab);
+     setPosTerminalOpen(true);
+     return;
+   }
+
+   if (propSetActiveTab) propSetActiveTab(tab);
+   storeSetActiveTab(tab);
+   
+   // Auto-open terminal when navigating to POS tab for multitasking
+   if (tab === Tab.POS) {
+     setPosTerminalOpen(true);
+   }
  };
 
  return (
@@ -152,14 +169,17 @@ const Sidebar: React.FC<SidebarProps> = ({
  </div>
  </div>
 
- {/* Navigation */}
+ // Navigation
  <nav className="flex-1 overflow-y-auto py-2 px-0 custom-scrollbar">
  <div className="space-y-1">
  {MENU_STRUCTURE.map((section, idx) => {
  // Filter items based on user permission
  const allowedItems = section.items.filter(item => {
  if(!user) return false;
- return ROLE_ACCESS[item.id]?.includes(user.role);
+ // Handle special POS internal tabs permissions - they inherit from POS
+ // If it's a regular Tab enum value, use it. If it's one of the 4 new items, use Tab.POS.
+ const tabId = Object.values(Tab).includes(item.id as any) ? item.id : Tab.POS;
+ return ROLE_ACCESS[tabId as Tab]?.includes(user.role);
  });
 
  if (allowedItems.length === 0) return null;

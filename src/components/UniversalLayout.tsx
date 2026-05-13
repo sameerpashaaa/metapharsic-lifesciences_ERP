@@ -493,6 +493,7 @@ interface EnterpriseLayoutProps {
  isActive: boolean;
  group?: string;
  }[];
+ showSidebar?: boolean;
  tabs: {
  id: string;
  label: string;
@@ -514,6 +515,7 @@ export const EnterpriseLayout: React.FC<EnterpriseLayoutProps> = ({
  title,
  subtitle,
  sidebarItems,
+ showSidebar = true,
  tabs,
  topActions = [],
  children,
@@ -574,6 +576,7 @@ export const EnterpriseLayout: React.FC<EnterpriseLayoutProps> = ({
  <div className="flex flex-1 overflow-hidden">
  
  {/* DENSE LEFT NAVIGATION TREE */}
+ {showSidebar && (
  <div className="w-52 bg-slate-50 border-r border-slate-200 shrink-0 flex flex-col overflow-y-auto overflow-x-hidden">
  <div className="p-3 border-b border-slate-200 bg-white sticky top-0 font-bold text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-2">
  Navigator
@@ -597,6 +600,7 @@ export const EnterpriseLayout: React.FC<EnterpriseLayoutProps> = ({
  ))}
  </div>
  </div>
+ )}
 
  {/* MAIN TAB AREA */}
  <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
