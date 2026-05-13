@@ -49,21 +49,19 @@ export const ERPLayout: React.FC<ERPLayoutProps> = ({
  return (
  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col h-full animate-fadeIn">
  {/* Premium Header */}
- <div className="border-b border-slate-100 p-8 bg-white shrink-0">
- <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+ <div className="border-b border-[#e2e8f0] pb-5 pt-5 px-8 bg-white shrink-0 flex items-center justify-between">
  <div className="flex items-center gap-4">
- <div className="w-1.5 h-10 bg-accent rounded-full"></div>
  <div>
- <h1 className="text-3xl font-bold text-primary tracking-tight">{title}</h1>
- <div className="flex items-center gap-2 mt-1.5">
- <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
- <p className="text-sm font-medium text-slate-500 tracking-wide">{description}</p>
+ <h1 className="text-[22px] font-[700] text-[#0f172a] m-0 leading-none">{title}</h1>
+ <div className="flex items-center gap-2 mt-2">
+ <span className="w-[7px] h-[7px] rounded-full bg-[#22c55e]"></span>
+ <p className="text-[13px] text-[#64748b] m-0 leading-none">{description}</p>
  </div>
  </div>
  </div>
  
  {/* Action Hub */}
- <div className="flex flex-wrap gap-3">
+ <div className="flex items-center gap-2">
  {actionButtons.map((btn, idx) => {
  if (React.isValidElement(btn)) {
  return <div key={idx}>{btn}</div>;
@@ -74,10 +72,10 @@ export const ERPLayout: React.FC<ERPLayoutProps> = ({
  <button
  key={idx}
  onClick={config.onClick}
- className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-bold text-sm transition-all active:scale-95 ${
+ className={`flex items-center gap-2 px-[16px] py-[8px] rounded-[6px] font-[600] text-[13px] transition-all active:scale-95 ${
  config.variant === 'danger' 
- ? 'bg-red-600 text-white hover:bg-red-700' 
- : 'bg-primary text-white hover:bg-neutral-800'
+ ? 'bg-[#ef4444] text-white hover:bg-red-700' 
+ : 'bg-[#22c55e] text-white hover:bg-[#16a34a]'
  }`}
  >
  {config.icon}
@@ -86,13 +84,13 @@ export const ERPLayout: React.FC<ERPLayoutProps> = ({
  );
  })}
  
- <div className="flex bg-slate-50 p-1 rounded-full border border-slate-200">
+ <div className="flex items-center gap-2 ml-2">
  {onRefresh && (
  <button
  onClick={onRefresh}
  disabled={isLoading}
  title="Refresh Data"
- className="p-2.5 text-slate-600 hover:text-accent hover:bg-white rounded-full transition-all disabled:opacity-50"
+ className="p-0 text-[#64748b] hover:text-[#22c55e] rounded-full transition-all disabled:opacity-50 flex items-center justify-center w-[32px] h-[32px] hover:bg-slate-100"
  >
  <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
  </button>
@@ -102,7 +100,7 @@ export const ERPLayout: React.FC<ERPLayoutProps> = ({
  <button
  onClick={onExport}
  title="Export Excel"
- className="p-2.5 text-slate-600 hover:text-accent hover:bg-white rounded-full transition-all"
+ className="p-0 text-[#64748b] hover:text-[#22c55e] rounded-full transition-all flex items-center justify-center w-[32px] h-[32px] hover:bg-slate-100"
  >
  <Download size={20} />
  </button>
@@ -112,12 +110,11 @@ export const ERPLayout: React.FC<ERPLayoutProps> = ({
  <button
  onClick={onPrint}
  title="Print Report"
- className="p-2.5 text-slate-600 hover:text-accent hover:bg-white rounded-full transition-all"
+ className="p-0 text-[#64748b] hover:text-[#22c55e] rounded-full transition-all flex items-center justify-center w-[32px] h-[32px] hover:bg-slate-100"
  >
  <Printer size={20} />
  </button>
  )}
- </div>
  </div>
  </div>
  </div>
@@ -162,34 +159,29 @@ export const FilterBar: React.FC<FilterBarProps> = ({
  filters = []
 }) => {
  return (
- <div className="bg-white rounded-xl p-6 mb-8 border border-slate-200 flex flex-col lg:flex-row gap-6 items-end">
+ <div className="flex items-center gap-[10px] mb-[16px]">
  {/* Search Wing */}
- <div className="flex-1 w-full relative group">
- <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Search</label>
- <div className="relative">
- <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-accent transition-colors" size={20} />
+ <div className="flex-1 relative group">
+ <Search className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#94a3b8]" size={16} />
  <input
  type="text"
  value={searchValue}
  onChange={(e) => onSearchChange?.(e.target.value)}
  placeholder={searchPlaceholder}
- className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent transition-all text-sm font-medium"
+ className="w-full h-[38px] pl-[36px] pr-[12px] py-0 bg-[#ffffff] border-[1.5px] border-[#e2e8f0] rounded-[6px] focus:outline-none focus:border-[#22c55e] focus:ring-[3px] focus:ring-[#22c55e]/10 transition-all text-[13.5px] text-[#0f172a] placeholder-[#94a3b8]"
  />
- </div>
  </div>
 
  {/* Filter Slots */}
- <div className="flex flex-wrap gap-4 w-full lg:w-auto">
+ <div className="flex items-center gap-[10px]">
  {filters.map((filter, idx) => (
- <div key={idx} className="min-w-[160px] flex-1 lg:flex-none">
- <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">{filter.label}</label>
- <div className="relative group">
+ <div key={idx} className="relative group min-w-[140px]">
  {filter.type === 'date' ? (
  <input
  type="date"
  value={filter.value}
  onChange={(e) => filter.onChange(e.target.value)}
- className="w-full px-6 py-3 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent transition-all text-sm font-medium text-slate-700 appearance-none"
+ className="w-full h-[38px] px-[12px] py-0 bg-[#ffffff] border-[1.5px] border-[#e2e8f0] rounded-[6px] focus:outline-none focus:border-[#22c55e] transition-all text-[13px] text-[#0f172a] appearance-none"
  />
  ) : filter.type === 'text' ? (
  <input
@@ -197,13 +189,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
  value={filter.value}
  placeholder={filter.placeholder}
  onChange={(e) => filter.onChange(e.target.value)}
- className="w-full px-6 py-3 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent transition-all text-sm font-medium text-slate-700"
+ className="w-full h-[38px] px-[12px] py-0 bg-[#ffffff] border-[1.5px] border-[#e2e8f0] rounded-[6px] focus:outline-none focus:border-[#22c55e] transition-all text-[13px] text-[#0f172a]"
  />
  ) : (
  <select
  value={filter.value}
  onChange={(e) => filter.onChange(e.target.value)}
- className="w-full px-6 py-3 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent transition-all text-sm font-medium text-slate-700 appearance-none cursor-pointer pr-10"
+ className="w-full h-[38px] pl-[12px] pr-[30px] py-0 bg-[#ffffff] border-[1.5px] border-[#e2e8f0] rounded-[6px] focus:outline-none focus:border-[#22c55e] transition-all text-[13px] text-[#0f172a] appearance-none cursor-pointer"
  >
  {(filter.options || []).map((opt) => (
  <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
@@ -213,17 +205,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
  </select>
  )}
  {filter.type !== 'date' && filter.type !== 'text' && (
- <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+ <ChevronRight className="absolute right-[12px] top-1/2 -translate-y-1/2 rotate-90 text-[#94a3b8] pointer-events-none" size={16} />
  )}
- </div>
  </div>
  ))}
  
  <button 
  onClick={() => onRefine?.()}
- className="h-[46px] px-6 bg-primary text-white rounded-full font-bold text-sm hover:bg-neutral-800 active:scale-95 transition-all flex items-center gap-2 group"
+ className="h-[38px] px-[14px] bg-[#0f172a] text-[#ffffff] rounded-[6px] font-[600] text-[13px] hover:bg-[#1e293b] transition-all flex items-center gap-[6px]"
  >
- <Filter size={18} className="transition-transform" />
+ <Filter size={14} />
  Refine
  </button>
  </div>
@@ -262,15 +253,15 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  renderSubRow
 }) => {
  return (
- <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+ <div className="bg-[#ffffff] rounded-[8px] border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
  <div className="overflow-x-auto">
  <table className="w-full text-left border-collapse">
  <thead>
- <tr className="bg-slate-50 border-b border-slate-100">
+ <tr className="bg-[#f8fafc] border-t border-b border-[#e2e8f0]">
  {columns.map((col) => (
  <th
  key={col.key}
- className={`px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest ${
+ className={`px-[16px] py-[10px] text-[11px] font-[600] text-[#94a3b8] uppercase tracking-[0.06em] ${
  col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
  }`}
  style={{ width: col.width }}
@@ -280,13 +271,13 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  ))}
  </tr>
  </thead>
- <tbody className="divide-y divide-slate-50">
+ <tbody className="divide-y divide-[#f1f5f9]">
  {loading ? (
  <tr>
  <td colSpan={columns.length} className="px-6 py-20 text-center">
  <div className="inline-flex flex-col items-center">
- <div className="w-12 h-12 border-2 border-border border-t-accent rounded-full animate-spin"></div>
- <p className="mt-4 text-sm font-bold text-slate-400 tracking-widest uppercase">Fetching Data...</p>
+ <div className="w-12 h-12 border-2 border-border border-t-[#22c55e] rounded-full animate-spin"></div>
+ <p className="mt-4 text-sm font-[600] text-[#94a3b8] tracking-[0.06em] uppercase">Fetching Data...</p>
  </div>
  </td>
  </tr>
@@ -294,11 +285,11 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  <tr>
  <td colSpan={columns.length} className="px-6 py-32 text-center">
  <div className="flex flex-col items-center">
- <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
- <Search className="text-slate-200" size={40} />
+ <div className="w-20 h-20 bg-[#f8fafc] rounded-full flex items-center justify-center mb-4">
+ <Search className="text-[#94a3b8]" size={40} />
  </div>
- <p className="text-lg font-bold text-slate-300">{emptyMessage}</p>
- <button className="mt-4 text-sm font-bold text-accent hover:text-accent underline decoration-2 underline-offset-4">Reset Search Filters</button>
+ <p className="text-lg font-[600] text-[#64748b]">{emptyMessage}</p>
+ <button className="mt-4 text-sm font-[600] text-[#22c55e] hover:text-[#16a34a] underline decoration-2 underline-offset-4">Reset Search Filters</button>
  </div>
  </td>
  </tr>
@@ -307,14 +298,14 @@ export const DataTable: React.FC<DataTableProps<any>> = ({
  <React.Fragment key={idx}>
  <tr
  onClick={() => onRowClick?.(row)}
- className={`group transition-all border-b border-slate-50 last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-slate-50' : 'hover:bg-slate-50/30'}`}
+ className={`group transition-all border-b border-[#f1f5f9] bg-[#ffffff] hover:bg-[#f8fafc] ${onRowClick ? 'cursor-pointer' : ''}`}
  >
  {columns.map((col) => (
  <td
  key={col.key}
- className={`px-6 py-5 text-sm font-medium ${
+ className={`px-[16px] py-[14px] text-[13.5px] font-[400] ${
  col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
- } ${col.key === 'id' || col.key.includes('no') ? 'font-mono text-accent text-xs' : 'text-slate-700'}`}
+ } ${col.key === 'id' || col.key.includes('no') ? 'font-mono text-[#22c55e] text-xs' : 'text-[#0f172a]'}`}
  >
  {col.render ? col.render(row[col.key], row) : (col.format ? col.format(row[col.key], row) : row[col.key])}
  </td>
@@ -348,15 +339,15 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, t
  return (
  <div 
  onClick={onClick}
- className="p-6 rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 cursor-pointer flex items-center gap-5 animate-fadeIn"
+ className="px-[20px] py-[16px] rounded-[8px] border border-[#e2e8f0] bg-[#ffffff] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-all flex items-center gap-[14px] cursor-pointer"
  >
- <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-50 text-primary border border-slate-100">
+ <div className="w-[40px] h-[40px] rounded-[8px] flex items-center justify-center bg-[#f0fdf4] text-[#22c55e]">
  {icon}
  </div>
  <div>
- <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
- <div className="flex items-baseline gap-2">
- <h3 className="text-2xl font-bold text-primary">{value}</h3>
+ <p className="text-[11px] font-[600] text-[#94a3b8] uppercase tracking-[0.05em] m-0 leading-none">{label}</p>
+ <div className="flex items-baseline gap-2 mt-[2px]">
+ <h3 className="text-[20px] font-[700] text-[#0f172a] m-0 leading-[1.2]">{value}</h3>
  {trend && <span className="text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">{trend}</span>}
  </div>
  </div>
@@ -369,22 +360,22 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, t
 // ============================================
 
 interface BadgeProps {
- value: string;
+ value?: string;
  className?: string;
  text?: string;
  variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 }
 
 export const Badge: React.FC<BadgeProps> = ({ value, className, text, variant }) => {
- const base = "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border";
+ const base = "px-[8px] py-[2px] rounded-[4px] text-[11px] font-[600] border inline-flex";
  
  // Support legacy and new variants
  const variantMap = {
- success: 'bg-green-50 text-green-700 border-green-100',
- warning: 'bg-amber-50 text-amber-700 border-amber-100',
- danger: 'bg-red-50 text-red-700 border-red-100',
- info: 'bg-slate-100 text-slate-700 border-slate-200',
- neutral: 'bg-slate-50 text-slate-700 border-slate-100',
+ success: 'bg-[#f0fdf4] text-[#16a34a] border-[#dcfce7]',
+ warning: 'bg-[#fffbeb] text-[#f59e0b] border-[#fef3c7]',
+ danger: 'bg-[#fef2f2] text-[#ef4444] border-[#fee2e2]',
+ info: 'bg-[#eff6ff] text-[#3b82f6] border-[#dbeafe]',
+ neutral: 'bg-[#f1f5f9] text-[#475569] border-[#e2e8f0]',
  };
 
  const finalClass = variant ? `${base} ${variantMap[variant]}` : `${base} ${className}`;
@@ -414,20 +405,20 @@ interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange }) => {
  return (
- <div className="flex gap-2 p-1 bg-slate-100 rounded-full border border-slate-200 mb-8 w-fit overflow-x-auto">
+ <div className="flex gap-0 border-b-[2px] border-[#e2e8f0] mb-[16px]">
  {tabs.map((tab) => (
  <button
  key={tab.id}
  onClick={() => onChange(tab.id)}
- className={`px-6 py-2.5 rounded-full font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+ className={`px-[16px] py-[10px] text-[13px] cursor-pointer border-b-[2px] mb-[-2px] whitespace-nowrap transition-all flex items-center ${
  activeTab === tab.id
- ? 'bg-white text-accent border border-slate-200'
- : 'text-slate-500 hover:text-primary hover:bg-white/50'
+ ? 'font-[600] text-[#22c55e] border-[#22c55e] bg-transparent'
+ : 'font-[500] text-[#64748b] border-transparent hover:text-[#0f172a] hover:border-[#cbd5e1]'
  }`}
  >
  {tab.label}
  {tab.badge !== undefined && (
- <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === tab.id ? 'bg-accent text-white' : 'bg-slate-200 text-slate-600'}`}>
+ <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[9px] text-[11px] font-[600] ml-[6px] ${activeTab === tab.id ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#f1f5f9] text-[#64748b]'}`}>
  {tab.badge}
  </span>
  )}

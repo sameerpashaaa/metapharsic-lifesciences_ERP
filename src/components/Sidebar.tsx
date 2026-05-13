@@ -181,11 +181,11 @@ const Sidebar: React.FC<SidebarProps> = ({
  return (
  <div key={idx} className="mb-2">
  {isOpen && (
- <h4 className="px-4 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-100 first:border-0 first:mt-0">
+ <h4 className="px-[16px] pt-[16px] pb-[6px] text-[10px] font-[700] text-[#94a3b8] uppercase tracking-[0.08em] border-t border-slate-100 first:border-0 first:mt-0">
  {section.section}
  </h4>
  )}
- <ul className="space-y-0.5">
+ <ul className="space-y-0.5 px-2">
  {allowedItems.map((item) => {
  const isActive = activeTab === item.id;
  return (
@@ -193,19 +193,19 @@ const Sidebar: React.FC<SidebarProps> = ({
  <button
  onClick={() => setActiveTab(item.id)}
  className={`
- w-full flex items-center p-2 px-4 transition-all duration-200 relative group text-[11px] font-bold
+ w-full flex items-center px-[16px] py-[8px] rounded-[6px] transition-all duration-200 relative group text-[13px]
  ${isActive
- ? 'bg-[#E1EAF2] text-[#1D3557] border-l-4 border-[#1D3557] shadow-sm'
- : 'text-slate-600 hover:bg-blue-50 hover:text-accent border-l-4 border-transparent'}
+ ? 'bg-[#f0fdf4] text-[#16a34a] font-[600]'
+ : 'text-[#475569] font-[500] hover:bg-[#f8fafc] hover:text-[#0f172a]'}
  `}
  title={!isOpen ? item.label : ''}
  >
- <span className={`flex-shrink-0 ${isActive ? 'text-[#1D3557]' : 'text-slate-400 group-hover:text-accent'}`}>
- {React.cloneElement(item.icon as React.ReactElement, { size: 14 })}
+ <span className={`flex-shrink-0 mr-[10px] inline-flex items-center align-middle ${isActive ? 'text-[#16a34a]' : 'text-[#94a3b8] group-hover:text-[#0f172a]'}`}>
+ {React.cloneElement(item.icon as React.ReactElement, { size: 15 })}
  </span>
  
  {isOpen && (
- <span className="ml-3 whitespace-nowrap transition-all flex items-center justify-between w-full pr-2">
+ <span className="whitespace-nowrap transition-all flex items-center justify-between w-full">
  {item.label}
  {item.id === Tab.POS && (posState === 'side' || posState === 'mini') && (
    <span title="POS is active in background">

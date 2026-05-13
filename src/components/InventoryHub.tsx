@@ -11,7 +11,8 @@ import {
   ChevronDown, ChevronRight, CheckCircle2, ShoppingCart,
   Layers, Package, ShieldAlert, Download, Printer, Info,
   Eye, EyeOff, LayoutGrid, List as ListIcon, Maximize2, 
-  Save, Calculator, Globe, PlusCircle, ExternalLink, ArrowDownRight
+  Save, Calculator, Globe, PlusCircle, ExternalLink, ArrowDownRight,
+  Sparkles
 } from 'lucide-react';
 import { 
   ERPLayout, StatCard, Tabs, Badge, Modal, DataTable, FilterBar 
@@ -284,30 +285,30 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
   const renderIntelligenceSummary = () => {
     const data = analyticsData;
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-[12px] my-[20px]">
         <StatCard 
           label="Capital Locked" 
           value={`₹${(data?.metadata?.totalValue / 100000 || 0).toFixed(2)}L`} 
           color="blue" 
-          icon={<Wallet size={20}/>} 
+          icon={<Wallet size={18}/>} 
         />
         <StatCard 
           label="Stock Velocity" 
           value={`${(data?.metadata?.totalProducts > 0 ? 12.4 : 0)} tx/mo`} 
           color="success" 
-          icon={<TrendingUp size={20}/>} 
+          icon={<TrendingUp size={18}/>} 
         />
         <StatCard 
           label="Dead Stock Val" 
           value={`₹${(data?.deadStock?.reduce((s: any, i: any) => s + i.stockValue, 0) / 1000 || 0).toFixed(1)}K`} 
           color="rose" 
-          icon={<Trash2 size={20}/>} 
+          icon={<Trash2 size={18}/>} 
         />
         <StatCard 
           label="Service Level" 
           value="94.2%" 
           color="amber" 
-          icon={<Target size={20}/>} 
+          icon={<Target size={18}/>} 
         />
       </div>
     );
@@ -389,19 +390,19 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
         label: 'Identity & Source', 
         width: '25%', 
         render: (_: any, row: any) => (
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-[10px]">
             <button 
               onClick={(e) => { e.stopPropagation(); handleToggleRow(row); }}
-              className="mt-1 p-1 hover:bg-slate-100 rounded transition-colors"
+              className="mt-[2px] p-0 text-[#cbd5e1] hover:text-[#64748b] transition-colors"
             >
-              {expandedRows[row.id] ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+              {expandedRows[row.id] ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
             </button>
             <div className="min-w-0">
-              <div className="font-bold text-primary truncate leading-tight uppercase text-xs">{row.name}</div>
-              <div className="text-[9px] text-accent font-bold italic truncate">{row.genericName || 'No Generic'}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-bold rounded-sm tracking-tighter uppercase">{row.code}</span>
-                <span className="text-[8px] text-slate-400 font-bold uppercase truncate">{row.manufacturer || 'N/A'}</span>
+              <div className="font-[600] text-[#0f172a] truncate text-[13.5px]">{row.name}</div>
+              <div className="text-[12px] text-[#64748b] mt-[2px] truncate">{row.genericName || 'No Generic'}</div>
+              <div className="flex items-center gap-[6px] mt-[4px]">
+                <span className="px-[7px] py-[2px] bg-[#f1f5f9] text-[#475569] text-[11px] font-[600] rounded-[4px]">{row.code}</span>
+                <span className="px-[7px] py-[2px] bg-[#eff6ff] text-[#3b82f6] text-[11px] rounded-[4px] truncate">{row.manufacturer || 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -414,14 +415,12 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
         align: 'right' as const,
         render: (_: any, row: any) => {
           const margin = row.purchaseRate > 0 ? (((row.mrp - row.purchaseRate) / row.purchaseRate) * 100).toFixed(1) : '0';
+          const marginNum = Number(margin);
           return (
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] text-slate-400 font-bold uppercase">MRP:</span>
-                <span className="font-bold text-slate-800 text-xs">₹{(row.mrp || 0).toLocaleString()}</span>
-              </div>
-              <div className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${Number(margin) > 20 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                {margin}% Margin
+            <div className="flex flex-col items-end gap-[4px]">
+              <div className="font-[600] text-[#0f172a] text-[13.5px]">₹{(row.mrp || 0).toLocaleString()}</div>
+              <div className={`px-[8px] py-[2px] rounded-[4px] text-[11px] font-[600] ${marginNum > 0 ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[#fef2f2] text-[#ef4444]'}`}>
+                {margin}% MARGIN
               </div>
             </div>
           );
@@ -437,14 +436,14 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
           const reorder = row.reorderLevel || 100;
           const status = stock <= reorder ? 'CRITICAL' : stock <= reorder * 1.5 ? 'LOW' : 'HEALTHY';
           return (
-            <div className="w-full max-w-[120px] mx-auto space-y-1.5">
-              <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-tighter">
-                <span className={status === 'CRITICAL' ? 'text-red-600' : 'text-slate-500'}>{stock} {row.uom}</span>
-                <span className="text-slate-400">Target: {reorder}</span>
+            <div className="w-full max-w-[120px] mx-auto space-y-[4px]">
+              <div className="flex justify-between items-center">
+                <span className="text-[12.5px] font-[500] text-[#0f172a]">{stock} {row.uom}</span>
+                <span className="text-[11px] text-[#94a3b8]">TARGET: {reorder}</span>
               </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/50 shadow-inner">
+              <div className="h-[4px] w-full bg-[#f1f5f9] rounded-[2px] overflow-hidden">
                 <div 
-                  className={`h-full transition-all duration-1000 ${status === 'CRITICAL' ? 'bg-red-500' : status === 'LOW' ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  className={`h-full transition-all duration-1000 ${status === 'CRITICAL' ? 'bg-[#ef4444]' : status === 'LOW' ? 'bg-[#f59e0b]' : 'bg-[#22c55e]'}`}
                   style={{ width: `${Math.min((stock / (reorder * 2)) * 100, 100)}%` }}
                 ></div>
               </div>
@@ -458,9 +457,9 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
         width: '12%', 
         align: 'center' as const,
         render: (_: any, row: any) => (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[10px] font-bold text-slate-700">HSN: {row.hsnCode || '---'}</span>
-            <Badge text={`${row.taxRate || 0}% GST`} variant="info" />
+          <div className="flex flex-col items-center gap-[2px]">
+            <span className="text-[12px] text-[#64748b]">{row.hsnCode || '---'}</span>
+            <span className="text-[12.5px] font-[600] text-[#0f172a]">{row.taxRate || 0}% GST</span>
           </div>
         )
       },
@@ -472,23 +471,23 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
         render: (_: any, row: any) => (
           <div className="flex flex-col items-center gap-1.5">
             <div className="flex gap-1">
-              <Archive size={12} className={row.maintainBatches ? 'text-accent' : 'text-slate-200'}/>
-              <Clock size={12} className={row.trackExpiry ? 'text-amber-500' : 'text-slate-200'}/>
+              <Archive size={12} className={row.maintainBatches ? 'text-[#22c55e]' : 'text-slate-200'}/>
+              <Clock size={12} className={row.trackExpiry ? 'text-[#f59e0b]' : 'text-slate-200'}/>
             </div>
-            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{row.batchCount || 0} Batches</span>
+            <span className="text-[11px] text-[#64748b]">{row.batchCount || 0} Batches</span>
           </div>
         ) 
       },
       { key: 'actions', label: 'Actions', width: '12%', align: 'center' as const, render: (_: any, row: any) => (
-        <div className="flex gap-2 justify-center">
-          <button onClick={(e) => { e.stopPropagation(); handleEditSku(row); }} className="p-1.5 text-accent hover:bg-blue-50 rounded transition-all">
-            <Edit3 size={16}/>
+        <div className="flex gap-[4px] justify-center">
+          <button onClick={(e) => { e.stopPropagation(); handleEditSku(row); }} className="w-[28px] h-[28px] flex items-center justify-center text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9] bg-transparent rounded-[4px] transition-all">
+            <Edit3 size={14}/>
           </button>
-          <button onClick={(e) => { e.stopPropagation(); handleDeleteSku(row.id); }} className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-all">
-            <Trash2 size={16}/>
+          <button onClick={(e) => { e.stopPropagation(); handleDeleteSku(row.id); }} className="w-[28px] h-[28px] flex items-center justify-center text-[#94a3b8] hover:text-[#ef4444] hover:bg-[#fef2f2] bg-transparent rounded-[4px] transition-all">
+            <Trash2 size={14}/>
           </button>
-          <button className="p-1.5 text-slate-400 hover:text-accent rounded transition-all">
-            <TrendingUp size={16}/>
+          <button onClick={(e) => { e.stopPropagation(); window.location.hash = `#/analytics?sku=${row.id}`; }} className="w-[28px] h-[28px] flex items-center justify-center text-[#94a3b8] hover:text-[#22c55e] hover:bg-[#f0fdf4] bg-transparent rounded-[4px] transition-all">
+            <BarChart3 size={14}/>
           </button>
         </div>
       ) }
@@ -512,26 +511,26 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
 
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex gap-2 bg-slate-100 p-1 rounded-lg border">
+        <div className="flex justify-between items-center mb-[12px]">
+          <div className="inline-flex bg-[#f1f5f9] rounded-[6px] p-[3px] gap-[2px]">
             <button 
               onClick={() => setViewMode('DETAILED')} 
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'DETAILED' ? 'bg-white text-accent shadow-sm' : 'text-slate-500'}`}
+              className={`flex items-center gap-[5px] px-[12px] py-[5px] rounded-[4px] text-[12px] font-[500] transition-all ${viewMode === 'DETAILED' ? 'bg-[#ffffff] text-[#0f172a] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-[#64748b]'}`}
             >
-              <ListIcon size={14}/> Detailed View
+              <ListIcon size={13}/> Detailed View
             </button>
             <button 
               onClick={() => setViewMode('COMPACT')} 
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'COMPACT' ? 'bg-white text-accent shadow-sm' : 'text-slate-500'}`}
+              className={`flex items-center gap-[5px] px-[12px] py-[5px] rounded-[4px] text-[12px] font-[500] transition-all ${viewMode === 'COMPACT' ? 'bg-[#ffffff] text-[#0f172a] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-[#64748b]'}`}
             >
-              <LayoutGrid size={14}/> Compact View
+              <LayoutGrid size={13}/> Compact View
             </button>
           </div>
           <button 
             onClick={() => { setEditingId(null); setSkuForm(defaultForm); setShowSkuModal(true); }}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-sm"
+            className="flex items-center bg-[#22c55e] text-[#ffffff] h-[36px] px-[14px] rounded-[6px] font-[600] text-[13px] hover:bg-[#16a34a] transition-all"
           >
-            <Plus size={16}/> Add New SKU
+            <Plus size={15} className="mr-[5px]"/> Add New SKU
           </button>
         </div>
 
@@ -1064,17 +1063,17 @@ const InventoryHub: React.FC<InventoryHubProps> = ({
         <button 
           key="back"
           onClick={onBackToPos}
-          className="bg-primary text-white px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest hover:bg-neutral-800 transition-all flex items-center gap-3 shadow-xl"
+          className="bg-[#0f172a] text-[#ffffff] px-[16px] py-[8px] rounded-[6px] font-[600] text-[13px] hover:bg-[#1e293b] transition-all flex items-center gap-[6px]"
         >
-          <ShoppingCart size={18}/> Back to POS
+          <ShoppingCart size={14}/> Back to POS
         </button>
       ] : [
         <button 
           key="opt"
           onClick={() => setShowOptimizationModal(true)}
-          className="bg-accent text-white px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest hover:bg-neutral-900 transition-all flex items-center gap-3 shadow-xl"
+          className="bg-[#22c55e] text-[#ffffff] px-[16px] py-[8px] rounded-[6px] font-[600] text-[13px] hover:bg-[#16a34a] transition-all flex items-center gap-[6px]"
         >
-          <BrainCircuit size={18}/> AI Optimize
+          <Sparkles size={14}/> AI OPTIMIZE
         </button>
       ]}
     >
