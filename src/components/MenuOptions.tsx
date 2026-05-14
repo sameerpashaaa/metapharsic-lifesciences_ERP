@@ -548,10 +548,10 @@ const MenuOptions: React.FC<MenuOptionsProps> = ({
  <div className="relative" ref={menuRef}>
  <button
  onClick={toggleMenu}
- className="p-2.5 rounded-xl hover:bg-white/50 text-slate-600 hover:text-accent transition-all shadow-sm border border-transparent hover:border-slate-200"
+ className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
  aria-label="User menu and system options"
  >
- <User size={24} />
+ <User size={20} />
  </button>
  
  {isOpen && (

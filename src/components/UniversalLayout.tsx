@@ -480,7 +480,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen = true, title, onClose, chi
 interface EnterpriseLayoutProps {
  title: string;
  subtitle?: string;
- sidebarItems: {
+ sidebarItems?: {
  id: string;
  label: string;
  icon: ReactNode;
@@ -489,7 +489,7 @@ interface EnterpriseLayoutProps {
  group?: string;
  }[];
  showSidebar?: boolean;
- tabs: {
+ tabs?: {
  id: string;
  label: string;
  isActive: boolean;
@@ -509,9 +509,9 @@ interface EnterpriseLayoutProps {
 export const EnterpriseLayout: React.FC<EnterpriseLayoutProps> = ({
  title,
  subtitle,
- sidebarItems,
+ sidebarItems = [],
  showSidebar = true,
- tabs,
+ tabs = [],
  topActions = [],
  children,
  footer
@@ -599,6 +599,7 @@ export const EnterpriseLayout: React.FC<EnterpriseLayoutProps> = ({
 
  {/* MAIN TAB AREA */}
  <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+ {tabs.length > 0 && (
  <div className="flex bg-slate-100 border-b border-slate-200 hide-scrollbar overflow-x-auto shrink-0 pt-1 px-1 gap-1">
  {tabs.map(tab => (
  <div 
@@ -619,10 +620,8 @@ export const EnterpriseLayout: React.FC<EnterpriseLayoutProps> = ({
  </button>
  </div>
  ))}
- {tabs.length === 0 && (
- <div className="px-4 py-2 text-[10px] font-bold text-slate-400 italic uppercase tracking-widest">Workspace Empty</div>
- )}
  </div>
+ )}
  
  <div className="flex-1 overflow-auto p-6 relative bg-slate-50">
  {children}

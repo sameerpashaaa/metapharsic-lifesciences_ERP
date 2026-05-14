@@ -8,6 +8,12 @@ html {
 
 body {
   min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 /* --- Viewport Sizing Compensation for zoom: 0.8 --- */

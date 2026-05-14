@@ -23,6 +23,9 @@ import Documents from './components/Documents';
 import Assets from './components/Assets';
 import RnD from './components/RnD';
 import OMS from './components/OMS'; // Imported OMS component
+import SalesHistoryPage from './components/SalesHistoryPage';
+import CustomerDatabasePage from './components/CustomerDatabasePage';
+import VoucherSetupPage from './components/VoucherSetupPage';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import MenuOptions from './components/MenuOptions';
 
@@ -271,6 +274,9 @@ const AppContent: React.FC = () => {
       // Core
       case Tab.DASHBOARD: return <Dashboard onNavigate={setActiveTab} />;
       case Tab.POS: return <StrategicPOS />;
+      case Tab.SALES_HISTORY: return <SalesHistoryPage />;
+      case Tab.CUSTOMER_DATABASE: return <CustomerDatabasePage />;
+      case Tab.VOUCHER_SETUP: return <VoucherSetupPage />;
       case Tab.INVENTORY_HUB: return <InventoryHub />;
       case Tab.INVENTORY_VOUCHERS: return <InventoryVouchers />;
       case Tab.TALLY_VOUCHER_ENTRY: return <Accounts />;
@@ -318,6 +324,9 @@ const AppContent: React.FC = () => {
     const map: Record<string, string> = {
       [Tab.DASHBOARD]: 'Executive Overview',
       [Tab.POS]: 'Billing Terminal',
+      [Tab.SALES_HISTORY]: 'Sales History',
+      [Tab.CUSTOMER_DATABASE]: 'Customer Database',
+      [Tab.VOUCHER_SETUP]: 'Voucher Setup',
       [Tab.CRM]: 'CRM & Leads',
       [Tab.QC]: 'Quality Control Lab',
       [Tab.PCD]: 'PCD Network',
@@ -396,47 +405,48 @@ const AppContent: React.FC = () => {
             {/* LEFT: Standard ERP Page Content */}
             <div className="flex flex-col h-full overflow-hidden relative min-w-0" style={{ opacity: posState === 'full' ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: posState === 'full' ? 'none' : 'auto' }}>
               {/* TOP COMMAND RIBBON (Enterprise Style) */}
-              <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shadow-sm z-30">
-                <div className="flex items-center gap-8">
+              <header className="h-20 bg-white border-b border-slate-200 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-8 shadow-sm z-30">
+                <div className="flex min-w-0 items-center gap-4">
                   <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-3 rounded-2xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-sm border border-slate-100 hover:border-slate-200"
+                    className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-sm border border-slate-200 hover:border-slate-300"
+                    title="Toggle Sidebar"
                   >
-                  <Menu size={26} />
+                  <Menu size={24} />
                 </button>
 
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-0.5">Metapharsic ERP</span>
-                  <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <div className="flex min-w-0 flex-col justify-center">
+                  <span className="text-[10px] font-[800] text-blue-600 uppercase tracking-[0.14em] mb-1 leading-none">Metapharsic ERP</span>
+                  <h1 className="truncate text-xl font-black text-slate-900 tracking-tight leading-none">
                     {getPageTitle(activeTab)}
                   </h1>
                 </div>
               </div>
 
-              <div className="flex text-[13px] font-bold tracking-tight gap-1 overflow-hidden items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-200/60">
+              <div className="hidden lg:flex h-12 text-[13px] font-[800] tracking-tight gap-1 overflow-hidden items-center justify-center bg-slate-50 p-1 rounded-xl border border-slate-200/80">
                 <button 
                   onClick={() => {
                     setActiveTab(Tab.POS);
                   }} 
-                  className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.POS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
+                  className={`h-10 min-w-[96px] px-5 rounded-lg transition-all uppercase ${activeTab === Tab.POS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/60'}`}
                 >
                   POS
                 </button>
-                <button onClick={() => setActiveTab(Tab.INVENTORY_HUB)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.INVENTORY_HUB ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Inventory</button>
-                <button onClick={() => setActiveTab(Tab.ACCOUNTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.ACCOUNTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Accounts</button>
-                <button onClick={() => setActiveTab(Tab.REPORTS)} className={`px-6 py-2.5 rounded-xl transition-all uppercase ${activeTab === Tab.REPORTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}>Reports</button>
+                <button onClick={() => setActiveTab(Tab.INVENTORY_HUB)} className={`h-10 min-w-[112px] px-5 rounded-lg transition-all uppercase ${activeTab === Tab.INVENTORY_HUB ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/60'}`}>Inventory</button>
+                <button onClick={() => setActiveTab(Tab.ACCOUNTS)} className={`h-10 min-w-[108px] px-5 rounded-lg transition-all uppercase ${activeTab === Tab.ACCOUNTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/60'}`}>Accounts</button>
+                <button onClick={() => setActiveTab(Tab.REPORTS)} className={`h-10 min-w-[104px] px-5 rounded-lg transition-all uppercase ${activeTab === Tab.REPORTS ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200/60'}`}>Reports</button>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="hidden xl:flex flex-col items-end mr-2">
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="flex min-w-0 items-center justify-end gap-3">
+                <div className="hidden xl:flex flex-col items-end">
+                  <div className="flex items-center gap-2 text-[11px] font-[800] text-slate-500 uppercase tracking-[0.12em] leading-none">
                     <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
                     Terminal Active
                   </div>
-                  <div className="text-[10px] font-medium text-slate-400">Node v20.11.0 • ERP v4.2.0</div>
+                  <div className="mt-1.5 text-[10px] font-medium text-slate-400 leading-none">Node v20.11.0 | ERP v4.2.0</div>
                 </div>
 
-                <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+                <div className="h-10 w-[1px] bg-slate-200 hidden sm:block"></div>
 
                 <div className="flex items-center gap-2">
                   <button
@@ -445,14 +455,15 @@ const AppContent: React.FC = () => {
                       setActiveTab(Tab.DASHBOARD);
                       setTimeout(() => setActiveTab(currentTab), 10);
                     }}
-                    className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
+                    className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
                     title="Refresh Page"
                   >
                     <RefreshCw size={20} />
                   </button>
 
                   <button
-                    className="p-2.5 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
+                    onClick={() => setShowShortcutsHelp(true)}
+                    className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
                     title="Keyboard Shortcuts"
                   >
                     <HelpCircle size={20} />

@@ -317,9 +317,10 @@ export const NotificationBell: React.FC = () => {
     <div className="relative" ref={bellRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2.5 rounded-xl hover:bg-white/10 text-blue-200 transition-all hover:text-white"
+        className="relative h-10 w-10 flex items-center justify-center rounded-xl hover:bg-slate-50 text-slate-500 hover:text-blue-600 transition-all border border-transparent hover:border-slate-200"
+        title="Notifications"
       >
-        <Bell size={22} />
+        <Bell size={20} />
         {unreadCount > 0 && (
           <span className={`absolute -top-1 -right-1 min-w-[24px] h-6 px-1.5 rounded-full border-2 border-slate-50 shadow-sm flex items-center justify-center text-[10px] font-black ${
             unreadCount > 20 ? 'bg-red-600 text-white animate-pulse' : 'bg-red-500 text-white'
